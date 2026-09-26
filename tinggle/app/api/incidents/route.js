@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateApiKey } from "@/middleware/auth.middleware";
 import supabase from "@/lib/db.lib";
+import { calculateUserReputation } from "@/lib/credibility.lib";
 
 export async function GET(req) {
   try {
@@ -183,6 +184,47 @@ export async function PATCH(req) {
         { success: false, error: error.message },
         { status: 500 }
       );
+    }
+
+    // ── Sync Reporter's Credibility Score in Database on Official Admin Action ──
+    if (data?.reporter_email && status !== undefined) {
+      try {
+        const reporterEmail = data.reporter_email.toLowerCase().trim();
+
+        // Fetch all incidents by this reporter to calculate authoritative score
+        const { data: userIncidents } = await supabase
+          .from("incidents")
+          .select("*")
+          .eq("reporter_email", reporterEmail);
+
+        // Fetch user vote count
+        const { count: votesCount } = await supabase
+          .from("incident_votes")
+          .select("id", { count: "exact", head: true })
+          .eq("voter_email", reporterEmail);
+
+        // Fetch user comment count
+        const { count: commentsCount } = await supabase
+          .from("incident_comments")
+          .select("id", { count: "exact", head: true })
+          .eq("author_email", reporterEmail);
+
+        const rep = calculateUserReputation({
+          reportedIncidents: userIncidents || [],
+          votesCast: votesCount || 0,
+          commentsCount: commentsCount || 0,
+        });
+
+        await supabase
+          .from("users")
+          .update({
+            reputation: rep.score,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("email", reporterEmail);
+      } catch (syncErr) {
+        console.warn("Reputation sync notice:", syncErr.message);
+      }
     }
 
     return NextResponse.json({

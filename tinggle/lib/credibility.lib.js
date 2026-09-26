@@ -140,17 +140,20 @@ export function calculateCredibility({
  *
  * Rules:
  * 1. Base Score: 50 (neutral starting point for registered citizens)
- * 2. Corroborations on user's reports:
- *    - +3 pts per upvote/confirmation (capped at +15 pts per incident)
- *    - +10 pts for reports reaching VERIFIED / DISPATCH status
- *    - +15 pts for reports reaching RESOLVED status
- * 3. Strict Penalties on user's reports:
- *    - -4 pts per dispute vote received
- *    - -12 pts if disputes exceed confirmations on an incident
- *    - -35 pts if incident is flagged as FAKE / DISINFORMATION / HOAX
- * 4. Civic Eyewitness Contribution (voting & comments):
- *    - +1 pt per vote cast on other incidents (up to +15 pts)
- *    - +1 pt per comment/insight contributed (up to +10 pts)
+ * 2. Pending alerts (uncorroborated / awaiting admin action):
+ *    - Citizen upvotes and fake flags on pending reports do NOT alter the author's account score.
+ *    - This completely prevents artificial upvote farming or brigade griefing while unverified.
+ * 3. Official Admin Actions:
+ *    - When Admin SENDS HELP / Dispatches / Verifies:
+ *      * +10 pts for emergency squad dispatched / verified report
+ *      * +15 pts for officially resolved & contained report
+ *      * Controlled Corroboration bonus: Upvotes gathered on genuine, verified incidents unlock at +1 pt each (capped at +8 pts per incident)
+ *    - When Admin MARKS AS FAKE / Disinformation:
+ *      * -35 pts severe deduction per false report
+ *      * Automatically categorizes user as FLAGGED / LOW TRUST
+ * 4. Civic Eyewitness Contribution (voting & comments on other reports):
+ *    - +1 pt per vote cast on other incidents (up to +10 pts)
+ *    - +1 pt per comment/insight contributed (up to +8 pts)
  * 5. Score Bounds: Clamped strictly between 0 and 100.
  */
 export function calculateUserReputation({
@@ -184,7 +187,7 @@ export function calculateUserReputation({
     totalUpvotesReceived += confirms;
     totalDisputesReceived += disputes;
 
-    // Disinformation check (severe penalty)
+    // 1. ADMIN MARKED AS FAKE / DISINFORMATION (Official HQ Penalty)
     if (
       status.includes("FAKE") ||
       status.includes("DISINFORMATION") ||
@@ -196,39 +199,41 @@ export function calculateUserReputation({
       continue;
     }
 
-    // Upvote bonus (capped per report)
-    const reportBonus = Math.min(15, confirms * 3);
-    breakdown.corroborationBonus += reportBonus;
+    // 2. ADMIN SENT HELP / VERIFIED / RESOLVED (Official HQ Verification)
+    const isResolved =
+      status.includes("RESOLVED") || status.includes("CONTAINED");
+    const isDispatched =
+      status.includes("DISPATCH") ||
+      status.includes("EN ROUTE") ||
+      status.includes("VERIFIED") ||
+      status.includes("CONFIRMED");
 
-    // Status bonuses
-    if (status.includes("RESOLVED")) {
+    if (isResolved) {
       resolvedCount++;
       breakdown.resolutionBonus += 15;
-    } else if (
-      status.includes("VERIFIED") ||
-      status.includes("DISPATCH") ||
-      status.includes("CONFIRMED")
-    ) {
+      // Controlled corroboration bonus unlocked on verified reports (+1 pt per upvote, max +8)
+      const reportBonus = Math.min(8, confirms * 1);
+      breakdown.corroborationBonus += reportBonus;
+    } else if (isDispatched) {
       verifiedCount++;
       breakdown.resolutionBonus += 10;
+      // Controlled corroboration bonus unlocked on dispatched reports (+1 pt per upvote, max +8)
+      const reportBonus = Math.min(8, confirms * 1);
+      breakdown.corroborationBonus += reportBonus;
     }
 
-    // Dispute penalties
-    if (disputes > 0) {
-      breakdown.disputePenalties += disputes * 4;
-      if (disputes > confirms) {
-        breakdown.disputePenalties += 12; // Net negative report penalty
-      }
-    }
+    // 3. PENDING CIVIC REPORTS (Awaiting Admin Review)
+    // NOTE: While pending, random citizen upvotes or disputes DO NOT alter the author's account score.
+    // They are displayed on the alert to assist Admin triage without manipulating user credibility.
   }
 
-  // Eyewitness activity bonus
-  const votingBonus = Math.min(15, votesCast * 1);
-  const commentBonus = Math.min(10, commentsCount * 1);
+  // Eyewitness activity bonus (controlled and calibrated)
+  const votingBonus = Math.min(10, votesCast * 1);
+  const commentBonus = Math.min(8, commentsCount * 1);
   breakdown.eyewitnessActivityBonus = votingBonus + commentBonus;
 
   // Total penalties
-  breakdown.totalPenalties = breakdown.disputePenalties + breakdown.disinformationPenalties;
+  breakdown.totalPenalties = breakdown.disinformationPenalties;
 
   // Final score
   score =

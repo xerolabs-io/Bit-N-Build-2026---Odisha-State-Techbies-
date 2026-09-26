@@ -465,7 +465,7 @@ export default function ProfilePage() {
             <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
               <div className="flex flex-col">
                 <span className="text-xs text-zinc-400 font-mono">Community Upvotes</span>
-                <span className="text-[11px] text-zinc-500 font-mono">+3 pts per upvote (max +15/post)</span>
+                <span className="text-[11px] text-zinc-500 font-mono">+1 pt per upvote (unlocked on Admin dispatch)</span>
               </div>
               <span className="font-mono font-bold text-sm text-emerald-400">
                 +{breakdown.corroborationBonus || 0}
@@ -475,8 +475,8 @@ export default function ProfilePage() {
             {/* Resolution */}
             <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs text-zinc-400 font-mono">Verified & Resolved Alerts</span>
-                <span className="text-[11px] text-zinc-500 font-mono">+15 resolved / +10 dispatched</span>
+                <span className="text-xs text-zinc-400 font-mono">Admin Dispatched &amp; Resolved</span>
+                <span className="text-[11px] text-zinc-500 font-mono">+10 on dispatch / +15 on resolve</span>
               </div>
               <span className="font-mono font-bold text-sm text-sky-400">
                 +{breakdown.resolutionBonus || 0}
@@ -486,8 +486,8 @@ export default function ProfilePage() {
             {/* Eyewitness Activity */}
             <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs text-zinc-400 font-mono">Eyewitness Voting</span>
-                <span className="text-[11px] text-zinc-500 font-mono">+1 pt per valid corroboration</span>
+                <span className="text-xs text-zinc-400 font-mono">Eyewitness Activity</span>
+                <span className="text-[11px] text-zinc-500 font-mono">+1 pt per active vote / comment</span>
               </div>
               <span className="font-mono font-bold text-sm text-amber-400">
                 +{breakdown.eyewitnessActivityBonus || 0}
@@ -497,19 +497,19 @@ export default function ProfilePage() {
             {/* Dispute Penalties */}
             <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs text-zinc-400 font-mono">Community Disputes</span>
-                <span className="text-[11px] text-zinc-500 font-mono">-4 pts per dispute / net penalty</span>
+                <span className="text-xs text-zinc-400 font-mono">Community Fake Flags</span>
+                <span className="text-[11px] text-zinc-500 font-mono">Pending flags do not alter score</span>
               </div>
-              <span className={`font-mono font-bold text-sm ${breakdown.disputePenalties > 0 ? "text-red-400" : "text-zinc-500"}`}>
-                {breakdown.disputePenalties > 0 ? `-${breakdown.disputePenalties}` : "0"}
+              <span className="font-mono font-bold text-sm text-zinc-500">
+                0
               </span>
             </div>
 
             {/* Disinformation Penalties */}
             <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs text-zinc-400 font-mono">Disinformation Deductions</span>
-                <span className="text-[11px] text-zinc-500 font-mono">-35 pts per false/debunked report</span>
+                <span className="text-xs text-zinc-400 font-mono">Admin Disinformation Penalty</span>
+                <span className="text-[11px] text-zinc-500 font-mono">-35 pts if marked as fake by Admin HQ</span>
               </div>
               <span className={`font-mono font-bold text-sm ${breakdown.disinformationPenalties > 0 ? "text-red-400" : "text-zinc-500"}`}>
                 {breakdown.disinformationPenalties > 0 ? `-${breakdown.disinformationPenalties}` : "0"}
