@@ -41,7 +41,7 @@ export async function POST(req) {
       displayName: display_name,
       password,
       isGoogleAuth: false,
-      reputation: 3, // default reputation = 3
+      reputation: 50, // default reputation = 50 baseline
     });
 
     return NextResponse.json({

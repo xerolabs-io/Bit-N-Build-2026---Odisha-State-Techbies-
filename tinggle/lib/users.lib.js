@@ -45,7 +45,7 @@ export async function saveOrUpdateUser({
         email: normalizedEmail,
         display_name: name,
         password_hash: passwordHash,
-        reputation: reputation ?? 3,
+        reputation: reputation ?? 50,
         updated_at: new Date().toISOString(),
       },
       {

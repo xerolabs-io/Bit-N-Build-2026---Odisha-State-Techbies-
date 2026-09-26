@@ -262,6 +262,8 @@ export default function ProfilePage() {
   const tier = cred?.tier || "ACTIVE CITIZEN";
   const breakdown = cred?.breakdown || {};
   const metrics = cred?.metrics || {};
+  const postingPrivilege =
+    cred?.postingPrivilege || profileData?.postingPrivilege || { canPost: true };
 
   return (
     <div className="min-h-screen bg-[#0d131e] text-zinc-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
@@ -673,65 +675,75 @@ export default function ProfilePage() {
             <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
               <div className="flex flex-col">
                 <span className="text-xs text-zinc-400 font-mono">Base Citizen Trust</span>
-                <span className="text-[11px] text-zinc-500 font-mono">Initial calibrated baseline</span>
+                <span className="text-[11px] text-zinc-500 font-mono">Neutral baseline for all registered citizens</span>
               </div>
               <span className="font-mono font-bold text-sm text-zinc-300">
                 +{breakdown.baseScore || 50}
               </span>
             </div>
 
-            {/* Corroboration */}
+            {/* Admin Dispatched & Resolved */}
             <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs text-zinc-400 font-mono">Community Upvotes</span>
-                <span className="text-[11px] text-zinc-500 font-mono">+1 pt per upvote (unlocked on Admin dispatch)</span>
+                <span className="text-xs text-zinc-400 font-mono">Admin Verified &amp; Resolved</span>
+                <span className="text-[11px] text-zinc-500 font-mono">+2 on squad dispatch / +3 on official resolution</span>
               </div>
               <span className="font-mono font-bold text-sm text-emerald-400">
-                +{breakdown.corroborationBonus || 0}
-              </span>
-            </div>
-
-            {/* Resolution */}
-            <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-xs text-zinc-400 font-mono">Admin Dispatched &amp; Resolved</span>
-                <span className="text-[11px] text-zinc-500 font-mono">+10 on dispatch / +15 on resolve</span>
-              </div>
-              <span className="font-mono font-bold text-sm text-sky-400">
                 +{breakdown.resolutionBonus || 0}
               </span>
             </div>
 
-            {/* Eyewitness Activity */}
+            {/* Eyewitness Voting Rewards */}
             <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs text-zinc-400 font-mono">Eyewitness Activity</span>
-                <span className="text-[11px] text-zinc-500 font-mono">+1 pt per active vote / comment</span>
+                <span className="text-xs text-zinc-400 font-mono">Voting Accuracy Rewards</span>
+                <span className="text-[11px] text-zinc-500 font-mono">+1 to +3 pts for authentic upvotes &amp; catching hoaxes</span>
               </div>
-              <span className="font-mono font-bold text-sm text-amber-400">
-                +{breakdown.eyewitnessActivityBonus || 0}
+              <span className="font-mono font-bold text-sm text-sky-400">
+                +{breakdown.voterBonus || 0}
               </span>
             </div>
 
-            {/* Dispute Penalties */}
+            {/* Voting Accuracy Penalties */}
             <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs text-zinc-400 font-mono">Community Fake Flags</span>
-                <span className="text-[11px] text-zinc-500 font-mono">Pending flags do not alter score</span>
+                <span className="text-xs text-zinc-400 font-mono">Voting Accuracy Penalties</span>
+                <span className="text-[11px] text-zinc-500 font-mono">-1 to -2 pts for false disputes or amplifying hoaxes</span>
               </div>
-              <span className="font-mono font-bold text-sm text-zinc-500">
-                0
+              <span className={`font-mono font-bold text-sm ${breakdown.voterPenalties > 0 ? "text-amber-400" : "text-zinc-500"}`}>
+                {breakdown.voterPenalties > 0 ? `-${breakdown.voterPenalties}` : "0"}
               </span>
             </div>
 
-            {/* Disinformation Penalties */}
+            {/* Disinformation / Hoax Penalties */}
             <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs text-zinc-400 font-mono">Admin Disinformation Penalty</span>
-                <span className="text-[11px] text-zinc-500 font-mono">-35 pts if marked as fake by Admin HQ</span>
+                <span className="text-xs text-zinc-400 font-mono">False Alarm / Hoax Penalty</span>
+                <span className="text-[11px] text-zinc-500 font-mono">-6 pts deduction per false alert (range: 5-7 pts)</span>
               </div>
               <span className={`font-mono font-bold text-sm ${breakdown.disinformationPenalties > 0 ? "text-red-400" : "text-zinc-500"}`}>
                 {breakdown.disinformationPenalties > 0 ? `-${breakdown.disinformationPenalties}` : "0"}
+              </span>
+            </div>
+
+            {/* Posting Privileges Status */}
+            <div className="p-3.5 bg-[#0a0f1d] border border-white/5 rounded-xl flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-xs text-zinc-400 font-mono">Posting Privileges</span>
+                <span className="text-[11px] text-zinc-500 font-mono">
+                  {postingPrivilege?.canPost
+                    ? "Full posting & voting access"
+                    : "Score < 35 or consecutive hoaxes"}
+                </span>
+              </div>
+              <span
+                className={`font-mono font-bold text-xs px-2 py-0.5 rounded border ${
+                  postingPrivilege?.canPost
+                    ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+                    : "text-red-400 bg-red-500/15 border-red-500/40"
+                }`}
+              >
+                {postingPrivilege?.canPost ? "✓ AUTHORIZED" : "⛔ VOTING ONLY"}
               </span>
             </div>
           </div>

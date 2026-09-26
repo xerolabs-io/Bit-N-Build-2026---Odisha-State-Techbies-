@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateApiKey } from "@/middleware/auth.middleware";
 import supabase from "@/lib/db.lib";
-import { calculateUserReputation } from "@/lib/credibility.lib";
+import { calculateUserReputation, checkPostingPrivilege } from "@/lib/credibility.lib";
 
 export async function GET(req) {
   try {
@@ -76,6 +76,40 @@ export async function POST(req) {
           error: "Unauthorized: You must be signed in with a valid account to submit an incident report.",
         },
         { status: 401 }
+      );
+    }
+
+    const normalizedReporter = reporter_email.toLowerCase().trim();
+
+    // ── Check Posting Privileges (Score >= 35 and not 3 consecutive hoaxes) ──
+    const { data: userRecord } = await supabase
+      .from("users")
+      .select("reputation")
+      .eq("email", normalizedReporter)
+      .maybeSingle();
+
+    const { data: pastReports } = await supabase
+      .from("incidents")
+      .select("id, status, created_at")
+      .eq("reporter_email", normalizedReporter)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    const userReputation = userRecord?.reputation ?? 50;
+    const privilege = checkPostingPrivilege({
+      score: userReputation,
+      reportedIncidents: pastReports || [],
+    });
+
+    if (!privilege.canPost) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: privilege.reason || "Posting restricted: Your credibility score is below 35 or your last 3 reports were flagged as hoaxes.",
+          isRestricted: true,
+          postingPrivilege: privilege,
+        },
+        { status: 403 }
       );
     }
 
@@ -186,42 +220,85 @@ export async function PATCH(req) {
       );
     }
 
-    // ── Sync Reporter's Credibility Score in Database on Official Admin Action ──
-    if (data?.reporter_email && status !== undefined) {
+    // ── Sync Reporter's and Voters' Credibility Scores on Official Admin Action ──
+    if (status !== undefined) {
       try {
-        const reporterEmail = data.reporter_email.toLowerCase().trim();
+        const syncUserReputation = async (targetEmail) => {
+          if (!targetEmail || !targetEmail.includes("@")) return;
+          const cleanEmail = targetEmail.toLowerCase().trim();
 
-        // Fetch all incidents by this reporter to calculate authoritative score
-        const { data: userIncidents } = await supabase
-          .from("incidents")
-          .select("*")
-          .eq("reporter_email", reporterEmail);
+          const { data: userIncidents } = await supabase
+            .from("incidents")
+            .select("*")
+            .eq("reporter_email", cleanEmail);
 
-        // Fetch user vote count
-        const { count: votesCount } = await supabase
+          const { data: userVotes } = await supabase
+            .from("incident_votes")
+            .select("id, incident_id, vote_type, is_local, voted_at")
+            .eq("voter_email", cleanEmail);
+
+          const incIds = [...new Set((userVotes || []).map((v) => v.incident_id).filter(Boolean))];
+          let votedIncData = [];
+          if (incIds.length > 0) {
+            const { data: incs } = await supabase
+              .from("incidents")
+              .select("id, category, status, confirm_count, dispute_count")
+              .in("id", incIds);
+            const m = {};
+            (incs || []).forEach((item) => {
+              m[item.id] = item;
+            });
+            votedIncData = (userVotes || []).map((v) => ({
+              ...v,
+              incident: m[v.incident_id] || null,
+            }));
+          }
+
+          const { count: commentsCount } = await supabase
+            .from("incident_comments")
+            .select("id", { count: "exact", head: true })
+            .eq("author_email", cleanEmail);
+
+          const rep = calculateUserReputation({
+            reportedIncidents: userIncidents || [],
+            votesCast: userVotes?.length || 0,
+            commentsCount: commentsCount || 0,
+            votedIncidents: votedIncData,
+          });
+
+          await supabase
+            .from("users")
+            .update({
+              reputation: rep.score,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("email", cleanEmail);
+        };
+
+        // 1. Sync reporter reputation
+        if (data?.reporter_email) {
+          await syncUserReputation(data.reporter_email);
+        }
+
+        // 2. Sync all voters who cast upvotes/downvotes on this incident
+        const { data: incidentVoters } = await supabase
           .from("incident_votes")
-          .select("id", { count: "exact", head: true })
-          .eq("voter_email", reporterEmail);
+          .select("voter_email")
+          .eq("incident_id", id);
 
-        // Fetch user comment count
-        const { count: commentsCount } = await supabase
-          .from("incident_comments")
-          .select("id", { count: "exact", head: true })
-          .eq("author_email", reporterEmail);
+        const distinctVoters = [
+          ...new Set(
+            (incidentVoters || [])
+              .map((v) => v.voter_email?.toLowerCase()?.trim())
+              .filter((e) => e && e !== data?.reporter_email?.toLowerCase()?.trim())
+          ),
+        ];
 
-        const rep = calculateUserReputation({
-          reportedIncidents: userIncidents || [],
-          votesCast: votesCount || 0,
-          commentsCount: commentsCount || 0,
-        });
-
-        await supabase
-          .from("users")
-          .update({
-            reputation: rep.score,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("email", reporterEmail);
+        for (const voterEmail of distinctVoters) {
+          syncUserReputation(voterEmail).catch((e) =>
+            console.warn(`Voter rep sync notice for ${voterEmail}:`, e.message)
+          );
+        }
       } catch (syncErr) {
         console.warn("Reputation sync notice:", syncErr.message);
       }

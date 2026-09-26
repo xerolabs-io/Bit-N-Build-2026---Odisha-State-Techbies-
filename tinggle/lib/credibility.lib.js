@@ -156,20 +156,88 @@ export function calculateCredibility({
  *    - +1 pt per comment/insight contributed (up to +8 pts)
  * 5. Score Bounds: Clamped strictly between 0 and 100.
  */
+/**
+ * Checks whether a user is allowed to post new incidents or restricted to voting only.
+ * Rules:
+ * - Score < 35: Prohibited from posting (can only upvote/review).
+ * - Last 3 reports are ALL hoaxes/fake: Prohibited from posting.
+ */
+export function checkPostingPrivilege({ score = 50, reportedIncidents = [] }) {
+  if (score < 35) {
+    return {
+      canPost: false,
+      reason: "Credibility score is below 35. You are currently restricted to voting only.",
+      rule: "SCORE_BELOW_35",
+      minScore: 35,
+    };
+  }
+
+  const sorted = [...reportedIncidents].sort(
+    (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+  );
+
+  if (sorted.length >= 3) {
+    const last3 = sorted.slice(0, 3);
+    const all3Hoax = last3.every((inc) => {
+      const s = (inc.status || "").toUpperCase();
+      return (
+        s.includes("FAKE") ||
+        s.includes("DISINFORMATION") ||
+        s.includes("HOAX") ||
+        s.includes("DEBUNKED")
+      );
+    });
+
+    if (all3Hoax) {
+      return {
+        canPost: false,
+        reason: "Your last 3 consecutive incident reports were flagged as hoaxes. Posting privileges are suspended.",
+        rule: "CONSECUTIVE_HOAXES",
+      };
+    }
+  }
+
+  return {
+    canPost: true,
+    reason: null,
+    rule: "ALLOWED",
+  };
+}
+
+/**
+ * Calculates a strict, mathematically calibrated User Reputation / Credibility Score (0 - 100)
+ *
+ * Rules:
+ * 1. Base Score: 50 (neutral starting baseline)
+ * 2. Successful Report Verified by Admin:
+ *    - +2 pts for Dispatched / Verified alert
+ *    - +3 pts for Officially Resolved & Contained alert
+ * 3. False Alert / Hoax Flagged by Admin:
+ *    - -6 pts deduction per false alert (range: 5 - 7 pts)
+ * 4. Citizen Voter Rewards & Penalties (1 - 3 pts impact based on severity, local proximity, and voter volume):
+ *    - When alert is confirmed Genuine:
+ *      * Upvoters: awarded +1 to +3 pts for corroborating real emergencies.
+ *      * False disputers: penalized -1 to -2 pts for false obstruction.
+ *    - When alert is confirmed Hoax:
+ *      * Vigilant disputers: awarded +1 to +3 pts for calling out disinformation.
+ *      * Misguided upvoters: penalized -1 to -2 pts for amplifying fake alerts.
+ * 5. Score Bounds: Clamped strictly between 0 and 100.
+ */
 export function calculateUserReputation({
   reportedIncidents = [],
   votesCast = 0,
   commentsCount = 0,
+  votedIncidents = [], // [{ vote_type, is_local, incident: { category, status, confirm_count, dispute_count } }]
 }) {
   const BASE_SCORE = 50;
   let score = BASE_SCORE;
   const breakdown = {
     baseScore: BASE_SCORE,
-    corroborationBonus: 0,
     resolutionBonus: 0,
-    eyewitnessActivityBonus: 0,
-    disputePenalties: 0,
+    voterBonus: 0,
+    voterPenalties: 0,
     disinformationPenalties: 0,
+    eyewitnessActivityBonus: 0,
     totalPenalties: 0,
   };
 
@@ -179,6 +247,7 @@ export function calculateUserReputation({
   let verifiedCount = 0;
   let fakeReportsCount = 0;
 
+  // ── 1. Reporter's Own Submitted Incidents ──────────────────────────────────
   for (const inc of reportedIncidents) {
     const confirms = Number(inc.confirm_count || inc.confirmCount || 0);
     const disputes = Number(inc.dispute_count || inc.disputeCount || 0);
@@ -187,7 +256,7 @@ export function calculateUserReputation({
     totalUpvotesReceived += confirms;
     totalDisputesReceived += disputes;
 
-    // 1. ADMIN MARKED AS FAKE / DISINFORMATION (Official HQ Penalty)
+    // Admin Flagged as Fake / Disinformation / Hoax (-6 pts penalty)
     if (
       status.includes("FAKE") ||
       status.includes("DISINFORMATION") ||
@@ -195,11 +264,11 @@ export function calculateUserReputation({
       status.includes("DEBUNKED")
     ) {
       fakeReportsCount++;
-      breakdown.disinformationPenalties += 35;
+      breakdown.disinformationPenalties += 6;
       continue;
     }
 
-    // 2. ADMIN SENT HELP / VERIFIED / RESOLVED (Official HQ Verification)
+    // Admin Sent Help / Verified / Contained (+2 to +3 pts)
     const isResolved =
       status.includes("RESOLVED") || status.includes("CONTAINED");
     const isDispatched =
@@ -210,41 +279,108 @@ export function calculateUserReputation({
 
     if (isResolved) {
       resolvedCount++;
-      breakdown.resolutionBonus += 15;
-      // Controlled corroboration bonus unlocked on verified reports (+1 pt per upvote, max +8)
-      const reportBonus = Math.min(8, confirms * 1);
-      breakdown.corroborationBonus += reportBonus;
+      breakdown.resolutionBonus += 3; // +3 pts for successful resolution
     } else if (isDispatched) {
       verifiedCount++;
-      breakdown.resolutionBonus += 10;
-      // Controlled corroboration bonus unlocked on dispatched reports (+1 pt per upvote, max +8)
-      const reportBonus = Math.min(8, confirms * 1);
-      breakdown.corroborationBonus += reportBonus;
+      breakdown.resolutionBonus += 2; // +2 pts for successful dispatch
     }
-
-    // 3. PENDING CIVIC REPORTS (Awaiting Admin Review)
-    // NOTE: While pending, random citizen upvotes or disputes DO NOT alter the author's account score.
-    // They are displayed on the alert to assist Admin triage without manipulating user credibility.
   }
 
-  // Eyewitness activity bonus (controlled and calibrated)
-  const votingBonus = Math.min(10, votesCast * 1);
-  const commentBonus = Math.min(8, commentsCount * 1);
-  breakdown.eyewitnessActivityBonus = votingBonus + commentBonus;
+  // ── 2. User's Eyewitness Voting Accuracy on Other Incidents ────────────────
+  // Evaluates votes cast once Admin adjudicates the incident (1 - 3 pts scale)
+  for (const v of votedIncidents) {
+    const inc = v.incident;
+    if (!inc || !inc.status) continue;
 
-  // Total penalties
-  breakdown.totalPenalties = breakdown.disinformationPenalties;
+    const status = String(inc.status).toUpperCase();
+    const category = String(inc.category || "").toUpperCase();
+    const isUpvote = v.vote_type === "upvote";
+    const isDispute = v.vote_type === "dispute" || v.vote_type === "fake";
+    const isLocal = Boolean(v.is_local);
+    const totalVotes = Number(inc.confirm_count || 0) + Number(inc.dispute_count || 0);
 
-  // Final score
+    // Calculate severity impact (1 - 3 pts)
+    let severity = 1;
+    if (
+      category.includes("DISASTER") ||
+      category.includes("MEDICAL") ||
+      category.includes("FIRE") ||
+      category.includes("SOS")
+    ) {
+      severity = 3;
+    } else if (
+      category.includes("CRIME") ||
+      category.includes("TRAFFIC") ||
+      category.includes("SAFETY") ||
+      category.includes("UTILITY") ||
+      category.includes("HAZARD")
+    ) {
+      severity = 2;
+    }
+
+    // Boost factor if voter was a verified on-scene local eyewitness or if high-consensus
+    let weight = severity;
+    if (isLocal && weight < 3) weight += 1;
+    if (totalVotes >= 5 && weight < 3) weight += 1;
+    const impact = Math.min(3, Math.max(1, weight));
+
+    const isGenuine =
+      status.includes("DISPATCH") ||
+      status.includes("EN ROUTE") ||
+      status.includes("VERIFIED") ||
+      status.includes("CONFIRMED") ||
+      status.includes("RESOLVED") ||
+      status.includes("CONTAINED");
+
+    const isHoax =
+      status.includes("FAKE") ||
+      status.includes("DISINFORMATION") ||
+      status.includes("HOAX") ||
+      status.includes("DEBUNKED");
+
+    if (isGenuine) {
+      if (isUpvote) {
+        // Correct upvote on authentic incident: +1 to +3 pts
+        breakdown.voterBonus += impact;
+      } else if (isDispute) {
+        // False dispute against real emergency: -1 to -2 pts
+        breakdown.voterPenalties += Math.min(2, impact);
+      }
+    } else if (isHoax) {
+      if (isDispute) {
+        // Vigilant community fraud report: +1 to +3 pts
+        breakdown.voterBonus += impact;
+      } else if (isUpvote) {
+        // Upvoted / amplified false disinformation: -1 to -2 pts
+        breakdown.voterPenalties += Math.min(2, impact);
+      }
+    }
+  }
+
+  // Small activity bonus for civic comments
+  const commentBonus = Math.min(5, Math.floor(commentsCount * 0.5));
+  breakdown.eyewitnessActivityBonus = commentBonus;
+
+  // Calculate total penalties
+  breakdown.totalPenalties =
+    breakdown.disinformationPenalties + breakdown.voterPenalties;
+
+  // Final score compilation
   score =
     BASE_SCORE +
-    breakdown.corroborationBonus +
     breakdown.resolutionBonus +
+    breakdown.voterBonus +
     breakdown.eyewitnessActivityBonus -
     breakdown.totalPenalties;
 
-  // Strict clamp 0 to 100
+  // Strict clamp between 0 and 100
   const finalScore = Math.max(0, Math.min(100, Math.round(score)));
+
+  // Check posting privileges
+  const privilege = checkPostingPrivilege({
+    score: finalScore,
+    reportedIncidents,
+  });
 
   // Tier classification
   let tier = "ACTIVE CITIZEN";
@@ -252,22 +388,22 @@ export function calculateUserReputation({
   let tierLevel = 2;
   let tierBadge = "Active Citizen";
 
-  if (fakeReportsCount > 0 || finalScore < 30) {
-    tier = "FLAGGED / LOW TRUST";
+  if (!privilege.canPost || finalScore < 35) {
+    tier = "RESTRICTED / VOTING ONLY";
     tierColor = "#ef4444"; // Red
     tierLevel = 0;
-    tierBadge = "Flagged Citizen";
+    tierBadge = "Restricted (Voting Only)";
   } else if (finalScore < 50) {
     tier = "PROBATIONARY";
     tierColor = "#f97316"; // Orange
     tierLevel = 1;
     tierBadge = "Probationary";
-  } else if (finalScore >= 90) {
+  } else if (finalScore >= 80) {
     tier = "CIVIC VANGUARD";
     tierColor = "#10b981"; // Emerald
     tierLevel = 4;
     tierBadge = "Civic Vanguard (Elite)";
-  } else if (finalScore >= 75) {
+  } else if (finalScore >= 65) {
     tier = "TRUSTED EYEWITNESS";
     tierColor = "#38bdf8"; // Sky Blue
     tierLevel = 3;
@@ -280,6 +416,7 @@ export function calculateUserReputation({
     tierColor,
     tierLevel,
     tierBadge,
+    postingPrivilege: privilege,
     breakdown: {
       ...breakdown,
       finalScore,
@@ -293,6 +430,8 @@ export function calculateUserReputation({
       totalDisputesReceived,
       votesCast,
       commentsCount,
+      voterBonus: breakdown.voterBonus,
+      voterPenalties: breakdown.voterPenalties,
     },
   };
 }

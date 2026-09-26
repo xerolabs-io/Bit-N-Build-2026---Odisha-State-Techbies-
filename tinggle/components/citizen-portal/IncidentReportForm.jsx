@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import {
   Megaphone,
@@ -58,8 +58,36 @@ export default function IncidentReportForm({ onSubmit }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [postingPrivilege, setPostingPrivilege] = useState({ canPost: true, reason: null });
 
   const fileInputRef = useRef(null);
+
+  const userEmail =
+    user?.primaryEmailAddress?.emailAddress ||
+    user?.emailAddresses?.[0]?.emailAddress;
+
+  // Check user credibility and posting privilege
+  useEffect(() => {
+    if (!isSignedIn || !userEmail) return;
+    let isMounted = true;
+    async function checkPrivilege() {
+      try {
+        const res = await fetch(`/api/user/profile?email=${encodeURIComponent(userEmail)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (isMounted && json?.postingPrivilege) {
+            setPostingPrivilege(json.postingPrivilege);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not check posting privilege:", e.message);
+      }
+    }
+    checkPrivilege();
+    return () => {
+      isMounted = false;
+    };
+  }, [isSignedIn, userEmail]);
 
   // ─── File handling ─────────────────────────────────────────────────────────
   const handleFileChange = (e) => {
@@ -94,6 +122,14 @@ export default function IncidentReportForm({ onSubmit }) {
     // 1. Strict Auth Verification
     if (!isSignedIn || !user) {
       setSubmitError("Authentication required: You must be signed in to broadcast a citizen report.");
+      return;
+    }
+
+    if (postingPrivilege && !postingPrivilege.canPost) {
+      setSubmitError(
+        postingPrivilege.reason ||
+          "Posting restricted: Your credibility score is below 35 or your last 3 reports were flagged as hoaxes."
+      );
       return;
     }
 
@@ -145,6 +181,9 @@ export default function IncidentReportForm({ onSubmit }) {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
+        if (response.status === 403 && result.isRestricted) {
+          setPostingPrivilege({ canPost: false, reason: result.error });
+        }
         throw new Error(result.error || "Failed to submit report.");
       }
 
@@ -216,10 +255,17 @@ export default function IncidentReportForm({ onSubmit }) {
 
           <div className="flex items-center gap-2">
             {isSignedIn ? (
-              <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Verified Reporter</span>
-              </div>
+              !postingPrivilege.canPost ? (
+                <div className="flex items-center gap-1.5 text-xs text-red-400 font-mono bg-red-500/15 px-2.5 py-1 rounded-lg border border-red-500/30">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>Posting Restricted (Voting Only)</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Verified Reporter</span>
+                </div>
+              )
             ) : (
               <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
                 <Lock className="w-3.5 h-3.5" />
@@ -228,6 +274,28 @@ export default function IncidentReportForm({ onSubmit }) {
             )}
           </div>
         </div>
+
+        {/* Posting Privilege Restriction Banner */}
+        {isSignedIn && !postingPrivilege.canPost && (
+          <div className="bg-red-950/70 border-2 border-red-500/60 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-lg shadow-red-950/80 animate-in fade-in">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-red-500/20 text-red-400 shrink-0">
+                <AlertTriangle className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <span className="font-bold text-red-300 font-heading text-sm uppercase flex items-center gap-2">
+                  <span>Posting Privileges Suspended (Voting Only Mode)</span>
+                </span>
+                <p className="text-red-200/90 text-xs mt-1 leading-relaxed font-mono">
+                  {postingPrivilege.reason || "Your credibility score is below 35 or your last 3 consecutive alerts were flagged as hoaxes."}
+                </p>
+                <p className="text-zinc-400 text-[11px] mt-1.5 font-mono">
+                  🛡️ To eliminate spam &amp; hoaxes, posting is temporarily disabled. You can still vote and verify genuine incidents in the community feed to restore your trust score.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Unauthenticated Security Banner */}
         {!isSignedIn && isLoaded && (
@@ -453,15 +521,26 @@ export default function IncidentReportForm({ onSubmit }) {
               Clear
             </button>
             {isSignedIn ? (
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={isSubmitting || !headline.trim() || !description.trim()}
-                className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer disabled:opacity-50"
-              >
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {isSubmitting ? "Broadcasting..." : "Submit Incident Report"}
-              </Button>
+              !postingPrivilege.canPost ? (
+                <Button
+                  type="button"
+                  disabled={true}
+                  className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wide flex items-center justify-center gap-2 shadow-none cursor-not-allowed bg-zinc-800 text-zinc-500 border border-zinc-700"
+                >
+                  <Lock className="w-4 h-4" />
+                  Posting Suspended (Voting Only)
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={isSubmitting || !headline.trim() || !description.trim()}
+                  className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {isSubmitting ? "Broadcasting..." : "Submit Incident Report"}
+                </Button>
+              )
             ) : (
               <SignInButton mode="modal">
                 <Button

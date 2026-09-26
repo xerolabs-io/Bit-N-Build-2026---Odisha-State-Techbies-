@@ -53,6 +53,26 @@ export async function GET(req) {
 
     const votes = userVotes || [];
 
+    // Fetch related incidents for votes cast to evaluate voting accuracy (1 - 3 pts)
+    const incidentIds = [...new Set(votes.map((v) => v.incident_id).filter(Boolean))];
+    let votedIncidentsWithData = [];
+    if (incidentIds.length > 0) {
+      const { data: incData } = await supabase
+        .from("incidents")
+        .select("id, category, status, confirm_count, dispute_count")
+        .in("id", incidentIds);
+
+      const map = {};
+      (incData || []).forEach((item) => {
+        map[item.id] = item;
+      });
+
+      votedIncidentsWithData = votes.map((v) => ({
+        ...v,
+        incident: map[v.incident_id] || null,
+      }));
+    }
+
     // 4. Fetch comments posted by this user
     const { count: commentCount, error: commentError } = await supabase
       .from("incident_comments")
@@ -68,6 +88,7 @@ export async function GET(req) {
       reportedIncidents: incidents,
       votesCast: votes.length,
       commentsCount: commentCount || 0,
+      votedIncidents: votedIncidentsWithData,
     });
 
     const calculatedScore = reputationAnalysis.score;
@@ -100,11 +121,13 @@ export async function GET(req) {
         tierBadge: reputationAnalysis.tierBadge,
         tierColor: reputationAnalysis.tierColor,
         tierLevel: reputationAnalysis.tierLevel,
+        postingPrivilege: reputationAnalysis.postingPrivilege,
         isAdmin: Boolean(user.is_admin || user.admin),
         createdAt: user.created_at,
         watchlist: user.watchlist || [],
       },
       credibility: reputationAnalysis,
+      postingPrivilege: reputationAnalysis.postingPrivilege,
       incidents,
       activity: {
         votesCastCount: votes.length,
