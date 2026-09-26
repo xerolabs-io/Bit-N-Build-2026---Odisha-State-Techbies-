@@ -23,8 +23,8 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -137,7 +137,7 @@ export default function CitizenPortalPage() {
       if (legacy) {
         localStorage.removeItem("tinggle_watchlist");
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // 2. If logged in, fetch from DB
     if (userEmail) {
@@ -149,7 +149,7 @@ export default function CitizenPortalPage() {
             setWatchlist(parsed);
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       (async () => {
         setIsLoadingWatchlist(true);
@@ -160,7 +160,7 @@ export default function CitizenPortalPage() {
             setWatchlist(data.watchlist);
             try {
               localStorage.setItem(`tinggle_watchlist_${userEmail}`, JSON.stringify(data.watchlist));
-            } catch (e) {}
+            } catch (e) { }
           }
         } catch (err) {
           console.error("Watchlist fetch error:", err.message);
@@ -182,7 +182,7 @@ export default function CitizenPortalPage() {
       if (userEmail) {
         try {
           localStorage.setItem(`tinggle_watchlist_${userEmail}`, JSON.stringify(newWatchlist));
-        } catch (e) {}
+        } catch (e) { }
 
         setIsSavingWatchlist(true);
         try {
@@ -364,10 +364,10 @@ export default function CitizenPortalPage() {
       prev.map((inc) =>
         inc.id === incidentId
           ? {
-              ...inc,
-              confirmCount: type === "confirm" ? inc.confirmCount + 1 : inc.confirmCount,
-              disputeCount: type === "dispute" ? inc.disputeCount + 1 : inc.disputeCount,
-            }
+            ...inc,
+            confirmCount: type === "confirm" ? inc.confirmCount + 1 : inc.confirmCount,
+            disputeCount: type === "dispute" ? inc.disputeCount + 1 : inc.disputeCount,
+          }
           : inc
       )
     );
