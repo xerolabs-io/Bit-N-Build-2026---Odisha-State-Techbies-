@@ -36,6 +36,7 @@ import {
   ArrowBigUp,
   Flag,
   AlertTriangle,
+  FileText,
 } from "lucide-react";
 
 function formatElapsed(dateString) {
@@ -594,8 +595,8 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
         <div className="lg:col-span-8 flex flex-col min-h-[500px] lg:min-h-0 h-full overflow-hidden">
           {currentIncident ? (
             <Card className="flex flex-col h-full bg-[#111828]/95 border-white/10 shadow-2xl overflow-hidden rounded-xl">
-              {/* Header: Title, Description, and Badges */}
-              <CardHeader className="shrink-0 p-3 md:p-3.5 pb-2.5 border-b border-white/10 bg-[#162035]/90 space-y-2">
+              {/* Header: Badges, Title, Quick Location, Status (Pinned top, compact) */}
+              <CardHeader className="shrink-0 p-3 md:p-3.5 pb-2.5 border-b border-white/10 bg-[#162035]/95 space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Priority #1 SOS Badge or Category */}
@@ -674,9 +675,30 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                   )}
                 </div>
 
-                {/* Caller Phone Dial Banner (Compact & High Priority for SOS) */}
+                {/* Title & Quick Location Bar */}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <CardTitle className="text-lg md:text-xl font-bold font-heading text-white leading-tight">
+                    {currentIncident.title}
+                  </CardTitle>
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-300 bg-[#0c1220] border border-white/10 px-2.5 py-1 rounded-lg">
+                    <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span className="font-semibold text-zinc-100 max-w-[200px] truncate">
+                      {currentIncident.location_text || "Sector Perimeter"}
+                    </span>
+                    {currentIncident.latitude && (
+                      <span className="font-mono text-[11px] text-zinc-400 hidden sm:inline">
+                        ({Number(currentIncident.latitude).toFixed(3)}°N, {Number(currentIncident.longitude).toFixed(3)}°E)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+
+              {/* Scrollable Content: Unblocked, fluid scrolling on all devices */}
+              <CardContent className="flex-1 min-h-0 overflow-y-auto p-3.5 md:p-4 space-y-3.5 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+                {/* 1. Caller Phone Dial Banner (High Priority for SOS) */}
                 {isCurrentSos && (
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-2.5 rounded-xl bg-linear-to-r from-red-950/90 via-[#181122] to-emerald-950/50 border border-red-500/60 shadow-lg gap-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-3 rounded-xl bg-linear-to-r from-red-950/90 via-[#181122] to-emerald-950/50 border border-red-500/60 shadow-lg gap-2.5">
                     <div className="flex items-center gap-2.5">
                       <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-red-600/30 border border-red-500/60 text-red-300 shrink-0">
                         <PhoneCall className="w-4 h-4 text-red-400 animate-pulse" />
@@ -733,117 +755,145 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                   </div>
                 )}
 
-                {/* Title & Description */}
-                <div>
-                  <CardTitle className="text-lg md:text-xl font-bold font-heading text-white leading-tight">
-                    {currentIncident.title}
-                  </CardTitle>
-                  <CardDescription className="text-xs md:text-sm text-zinc-300 line-clamp-2 leading-relaxed mt-0.5">
-                    {currentIncident.description ||
-                      "Citizen emergency report filed through Tinggle Emergency Network."}
-                  </CardDescription>
-                </div>
-
-                {/* Location & Coordinates strip */}
-                <div className="flex items-center justify-between text-xs text-zinc-200 bg-[#0c1220] border border-white/10 px-3 py-1.5 rounded-lg flex-wrap gap-2">
-                  <div className="flex items-center gap-2 truncate">
-                    <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                    <span className="truncate font-semibold text-zinc-100">
-                      {currentIncident.location_text || "Sector Perimeter"}
-                    </span>
-                    {currentIncident.latitude && (
-                      <span className="font-mono text-[11px] text-zinc-400 hidden sm:inline">
-                        ({Number(currentIncident.latitude).toFixed(3)}°N,{" "}
-                        {Number(currentIncident.longitude).toFixed(3)}°E)
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 font-mono text-xs">
-                    {currentIncident.trust_score && (
-                      <span className="text-teal-400 font-semibold">
-                        Trust: {currentIncident.trust_score}
-                      </span>
-                    )}
-                    <span className="text-zinc-500 hidden sm:inline">•</span>
-                    <span className="text-zinc-400 hidden sm:inline">
-                      Verified Ledger
-                    </span>
-                  </div>
-                </div>
-
-                {/* Citizen Disinformation Alert Callout when flagged as fake */}
+                {/* 2. Citizen Disinformation Alert Callout when flagged as fake */}
                 {currentDisputes > 0 && (
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-rose-950/40 border border-rose-500/50 text-rose-200 text-xs animate-in fade-in duration-300">
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/50 text-rose-200 text-xs shadow-sm">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-pulse" />
+                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
                       <span>
-                        <strong className="text-rose-300">Citizen Disinformation Warning:</strong>{" "}
+                        <strong className="text-rose-300 font-bold">Citizen Disinformation Warning:</strong>{" "}
                         {currentDisputes} citizen{currentDisputes === 1 ? "" : "s"} flagged this report as fake news / hoax.
                       </span>
                     </div>
-                    <span className="font-mono text-[11px] font-bold text-rose-300 shrink-0 hidden sm:inline">
+                    <span className="font-mono text-xs font-bold text-rose-300 shrink-0 hidden sm:inline">
                       {currentUpvotes}▲ vs {currentDisputes}🚩
                     </span>
                   </div>
                 )}
-              </CardHeader>
 
-              {/* Content: Side-by-Side Image and Map (Flexible & Resilient) */}
-              <CardContent className="flex-1 min-h-0 p-3 md:p-3.5 grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto lg:overflow-hidden">
-                {/* 1. Evidence Image View */}
-                <div className="flex flex-col h-full min-h-[160px] md:min-h-0 rounded-xl overflow-hidden border border-white/10 bg-[#080d17] relative group">
-                  {currentIncident.image_url ? (
-                    <div className="relative w-full h-full min-h-[160px]">
-                      <Image
-                        src={currentIncident.image_url}
-                        alt={currentIncident.title}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                        unoptimized
-                      />
-                      <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
-                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-black/85 backdrop-blur-md px-2.5 py-0.5 rounded-md text-xs font-mono text-teal-300 border border-teal-500/40 font-semibold">
-                        <span className="w-2 h-2 rounded-full bg-teal-400 shadow-[0_0_4px_#2dd4bf]" />
-                        CITIZEN EVIDENCE PHOTO
-                      </div>
-                      <button
-                        onClick={() => setImageModal(currentIncident.image_url)}
-                        className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 bg-black/85 hover:bg-black px-2 py-1 rounded-lg text-xs font-mono text-zinc-200 hover:text-white border border-white/15 transition-colors cursor-pointer"
-                      >
-                        <ExternalLink className="w-3 h-3" /> Full View
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full p-4 text-center gap-2">
-                      {isCurrentSos ? (
-                        <AlertOctagon className="w-8 h-8 text-red-500 animate-pulse" />
-                      ) : (
-                        <Flame className="w-8 h-8 text-amber-400/80" />
-                      )}
-                      <span className="font-mono text-xs text-zinc-200 font-bold uppercase">
-                        {isCurrentSos ? "DIRECT SOS SATELLITE BEACON" : "NO PHOTO ATTACHED"}
-                      </span>
-                      <p className="text-xs text-zinc-400 max-w-xs">
-                        {isCurrentSos
-                          ? "Caller triggered instant emergency beacon. Direct GPS and carrier tower telemetry locked."
-                          : "Incident geo-located from reporter GPS coordinates."}
-                      </p>
-                      <span className="mt-0.5 font-mono text-[11px] text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded font-semibold">
-                        GPS LOCK ACTIVE
+                {/* 3. Detailed Incident Dossier / Briefing */}
+                <div className="p-3.5 rounded-xl bg-[#0c1322] border border-white/10 shadow-sm space-y-2">
+                  <div className="flex items-center justify-between text-xs font-mono text-zinc-400 border-b border-white/5 pb-2">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="font-bold text-zinc-200 uppercase tracking-wider text-[11px]">
+                        INCIDENT DOSSIER &amp; BRIEFING
                       </span>
                     </div>
-                  )}
+                    {currentIncident.reporter_email && (
+                      <span className="text-[11px] text-zinc-400">
+                        Dispatched By: <strong className="text-zinc-200">{currentIncident.reporter_email}</strong>
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap font-sans">
+                    {currentIncident.description ||
+                      "Citizen emergency report filed through Tinggle Emergency Network."}
+                  </p>
                 </div>
 
-                {/* 2. Interactive Map View */}
-                <div className="flex flex-col h-full min-h-[160px] md:min-h-0 rounded-xl overflow-hidden border border-white/10 bg-[#080d17] relative">
-                  <ActiveThreatSectorMap
-                    incidents={incidents}
-                    selectedIncident={currentIncident}
-                    compact={true}
-                    className="w-full h-full min-h-[160px]"
-                  />
+                {/* 4. Side-by-Side Media & Map Display */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-h-[220px] md:min-h-[260px]">
+                  {/* Evidence Image View */}
+                  <div className="flex flex-col h-full min-h-[200px] md:min-h-0 rounded-xl overflow-hidden border border-white/10 bg-[#080d17] relative group shadow-sm">
+                    {currentIncident.image_url ? (
+                      <div className="relative w-full h-full min-h-[200px]">
+                        <Image
+                          src={currentIncident.image_url}
+                          alt={currentIncident.title}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          unoptimized
+                        />
+                        <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                        <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-black/85 backdrop-blur-md px-2.5 py-0.5 rounded-md text-xs font-mono text-teal-300 border border-teal-500/40 font-semibold">
+                          <span className="w-2 h-2 rounded-full bg-teal-400 shadow-[0_0_4px_#2dd4bf]" />
+                          CITIZEN EVIDENCE PHOTO
+                        </div>
+                        <button
+                          onClick={() => setImageModal(currentIncident.image_url)}
+                          className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 bg-black/85 hover:bg-black px-2.5 py-1 rounded-lg text-xs font-mono text-zinc-200 hover:text-white border border-white/15 transition-colors cursor-pointer"
+                        >
+                          <ExternalLink className="w-3 h-3" /> Full View
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full p-4 text-center gap-2">
+                        {isCurrentSos ? (
+                          <AlertOctagon className="w-8 h-8 text-red-500 animate-pulse" />
+                        ) : (
+                          <Flame className="w-8 h-8 text-amber-400/80" />
+                        )}
+                        <span className="font-mono text-xs text-zinc-200 font-bold uppercase">
+                          {isCurrentSos ? "DIRECT SOS SATELLITE BEACON" : "NO PHOTO ATTACHED"}
+                        </span>
+                        <p className="text-xs text-zinc-400 max-w-xs">
+                          {isCurrentSos
+                            ? "Caller triggered instant emergency beacon. Direct GPS and carrier tower telemetry locked."
+                            : "Incident geo-located from reporter GPS coordinates."}
+                        </p>
+                        <span className="mt-0.5 font-mono text-[11px] text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded font-semibold">
+                          GPS LOCK ACTIVE
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Interactive Map View */}
+                  <div className="flex flex-col h-full min-h-[200px] md:min-h-0 rounded-xl overflow-hidden border border-white/10 bg-[#080d17] relative shadow-sm">
+                    <ActiveThreatSectorMap
+                      incidents={incidents}
+                      selectedIncident={currentIncident}
+                      compact={true}
+                      className="w-full h-full min-h-[200px]"
+                    />
+                  </div>
+                </div>
+
+                {/* 5. Telemetry & Community Ledger Indicators */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-[#0c1322] border border-white/10 p-3 rounded-xl text-xs font-mono shadow-sm">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">
+                      COMMUNITY SIGNALS
+                    </span>
+                    <span className="text-emerald-400 font-bold text-sm">
+                      ▲ {currentUpvotes} Upvote{currentUpvotes === 1 ? "" : "s"}
+                    </span>
+                    <span
+                      className={`text-[11px] ${
+                        currentDisputes > 0 ? "text-rose-400 font-bold" : "text-zinc-400"
+                      }`}
+                    >
+                      🚩 {currentDisputes} Fake Report{currentDisputes === 1 ? "" : "s"}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">
+                      CONFIDENCE SCORE
+                    </span>
+                    <span className="text-amber-400 font-bold text-sm">
+                      {currentIncident.trust_score || "COMMUNITY: 92%"}
+                    </span>
+                    <span className="text-[11px] text-teal-400 font-semibold">
+                      Verified Ledger
+                    </span>
+                  </div>
+
+                  <div className="col-span-2 sm:col-span-1 flex flex-col">
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">
+                      SECTOR LOCATION
+                    </span>
+                    <span className="text-sky-300 font-bold text-xs truncate">
+                      {currentIncident.latitude && currentIncident.longitude
+                        ? `${Number(currentIncident.latitude).toFixed(4)}°N, ${Number(currentIncident.longitude).toFixed(4)}°E`
+                        : "Pending GPS Lock"}
+                    </span>
+                    <span className="text-[11px] text-zinc-400 truncate">
+                      {currentIncident.location_text || "Sector Perimeter"}
+                    </span>
+                  </div>
                 </div>
               </CardContent>
 
