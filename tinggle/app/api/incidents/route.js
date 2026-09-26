@@ -1,0 +1,131 @@
+import { NextResponse } from "next/server";
+import { validateApiKey } from "@/middleware/auth.middleware";
+import supabase from "@/lib/db.lib";
+
+export async function GET(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const category = searchParams.get("category");
+    const status = searchParams.get("status");
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
+
+    let query = supabase
+      .from("incidents")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (category && category !== "all") {
+      query = query.eq("category", category);
+    }
+    if (status) {
+      query = query.eq("status", status);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("❌ Supabase fetch error:", error.message);
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, data, total: data.length });
+  } catch (err) {
+    console.error("❌ /api/incidents GET error:", err.message);
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req) {
+  try {
+    // 1. Auth check
+    const isValid = await validateApiKey(req);
+    if (!isValid) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: Invalid or missing API key." },
+        { status: 401 }
+      );
+    }
+
+    // 2. Parse body
+    const body = await req.json().catch(() => ({}));
+    const {
+      title,
+      description,
+      category,
+      location_text,
+      latitude,
+      longitude,
+      image_url,
+      is_anonymous,
+      reporter_email,
+    } = body;
+
+    if (!title?.trim()) {
+      return NextResponse.json(
+        { success: false, error: "Incident title is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!category?.trim()) {
+      return NextResponse.json(
+        { success: false, error: "Incident category is required." },
+        { status: 400 }
+      );
+    }
+
+    // 3. Generate unique ID
+    const incidentId = `INC-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    // 4. Upsert into Supabase
+    const { data, error } = await supabase
+      .from("incidents")
+      .insert({
+        id: incidentId,
+        title: title.trim(),
+        description: description?.trim() || `Citizen-reported ${category} incident. Community verifications initiated.`,
+        category: category.trim(),
+        status: "PENDING CIVIC CONFIRMATION",
+        location_text: location_text || null,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        image_url: image_url || null,
+        is_anonymous: Boolean(is_anonymous),
+        reporter_email: is_anonymous ? null : (reporter_email || null),
+        confirm_count: 1,
+        dispute_count: 0,
+        trust_score: "COMMUNITY TRUST: VERIFYING",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("❌ Supabase insert error:", error.message);
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      );
+    }
+
+    console.log("✅ Incident saved:", data.id);
+    return NextResponse.json(
+      { success: true, message: "Incident reported successfully.", data },
+      { status: 201 }
+    );
+  } catch (err) {
+    console.error("❌ /api/incidents POST error:", err.message);
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
+  }
+}
