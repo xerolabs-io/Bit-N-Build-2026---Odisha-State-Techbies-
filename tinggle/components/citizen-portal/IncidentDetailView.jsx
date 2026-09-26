@@ -702,11 +702,9 @@ export default function IncidentDetailView({ initialIncident }) {
             </div>
           </div>
         </div>
-    </div>
-        
 
-        {/* ── Community Discussion & Extra Details Section ─────────────────── */ }
-  <section className="bg-[#121929] border border-white/10 rounded-2xl p-5 md:p-7 shadow-2xl space-y-6">
+        {/* ── Community Discussion & Extra Details Section ─────────────────── */}
+        <section className="bg-[#121929] border border-white/10 rounded-2xl p-5 md:p-7 shadow-2xl space-y-6">
     <div className="flex items-center justify-between border-b border-white/10 pb-4">
       <div className="flex items-center gap-2.5">
         <MessageSquare className="w-5 h-5 text-sky-400" />

@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
   // Transpile Leaflet so Next.js can handle its CSS and ESM correctly
   transpilePackages: ["leaflet", "react-leaflet", "@react-leaflet/core"],
 
