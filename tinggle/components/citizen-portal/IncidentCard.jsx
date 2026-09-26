@@ -14,6 +14,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   AlertTriangle,
+  Ambulance,
+  AlertOctagon,
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
@@ -21,9 +23,12 @@ import { calculateCredibility, isLocalVoter } from "@/lib/credibility.lib";
 
 export default function IncidentCard({ incident, onVote }) {
   const router = useRouter();
-  const [confirmCount, setConfirmCount] = useState(incident.confirmCount || 1);
+  const [confirmCount, setConfirmCount] = useState(incident.confirmCount ?? incident.confirm_count ?? 1);
+  const [disputeCount, setDisputeCount] = useState(incident.disputeCount ?? incident.dispute_count ?? 0);
   const [userVoted, setUserVoted] = useState(false);
+  const [userDisputed, setUserDisputed] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
+  const [isDisputing, setIsDisputing] = useState(false);
   const [voteNotice, setVoteNotice] = useState(null);
   const [copiedAlert, setCopiedAlert] = useState(false);
 
@@ -53,11 +58,13 @@ export default function IncidentCard({ incident, onVote }) {
     );
   }, [userCoords, incident.latitude, incident.longitude]);
 
-  // Check localStorage for prior votes on mount
+  // Check localStorage for prior votes & disputes on mount
   useEffect(() => {
     if (typeof window !== "undefined" && incident.id) {
-      const stored = localStorage.getItem(`tinggle_upvoted_${incident.id}`);
-      if (stored) setUserVoted(true);
+      const storedUpvote = localStorage.getItem(`tinggle_upvoted_${incident.id}`);
+      if (storedUpvote) setUserVoted(true);
+      const storedDispute = localStorage.getItem(`tinggle_disputed_${incident.id}`);
+      if (storedDispute) setUserDisputed(true);
     }
   }, [incident.id]);
 
@@ -68,9 +75,9 @@ export default function IncidentCard({ incident, onVote }) {
       localUpvoteCount: isLocal && userVoted ? 1 : 0,
       hasPhoto: Boolean(incident.image),
       status: incident.status,
-      disputeCount: incident.disputeCount || 0,
+      disputeCount: disputeCount,
     });
-  }, [confirmCount, isLocal, userVoted, incident.image, incident.status, incident.disputeCount]);
+  }, [confirmCount, isLocal, userVoted, incident.image, incident.status, disputeCount]);
 
   // ─── Upvote Handler ────────────────────────────────────────────────────────
   const handleUpvote = async (e) => {
@@ -83,6 +90,12 @@ export default function IncidentCard({ incident, onVote }) {
       return;
     }
 
+    if (!userEmail) {
+      setVoteNotice("Sign in to upvote this incident report.");
+      setTimeout(() => setVoteNotice(null), 3000);
+      return;
+    }
+
     // 1. Self-upvote guard
     if (isOwnReport) {
       setVoteNotice("You cannot upvote your own incident report.");
@@ -90,7 +103,7 @@ export default function IncidentCard({ incident, onVote }) {
       return;
     }
 
-    if (userVoted || isVoting) return;
+    if (userVoted || isVoting || userDisputed) return;
 
     setIsVoting(true);
     setVoteNotice(null);
@@ -136,6 +149,84 @@ export default function IncidentCard({ incident, onVote }) {
       setTimeout(() => setVoteNotice(null), 3500);
     } finally {
       setIsVoting(false);
+    }
+  };
+
+  // ─── Report Fake / Dispute Handler ─────────────────────────────────────────
+  const handleReportFake = async (e) => {
+    e.stopPropagation();
+
+    if (cred.isDebunked) {
+      setVoteNotice("Already confirmed and flagged as fake by Emergency Command HQ.");
+      setTimeout(() => setVoteNotice(null), 3000);
+      return;
+    }
+
+    if (!userEmail) {
+      setVoteNotice("Sign in to flag or dispute an incident.");
+      setTimeout(() => setVoteNotice(null), 3000);
+      return;
+    }
+
+    if (isOwnReport) {
+      setVoteNotice("You cannot flag your own incident report.");
+      setTimeout(() => setVoteNotice(null), 3000);
+      return;
+    }
+
+    if (userDisputed || userVoted || isDisputing) {
+      setVoteNotice("You have already submitted your evaluation for this report.");
+      setTimeout(() => setVoteNotice(null), 3000);
+      return;
+    }
+
+    const confirmFlag = window.confirm(
+      `Flag incident #${incident.id} ("${incident.title}") as fake news / false report?\n\nThis will lower its community trust score and warn other citizens.`
+    );
+    if (!confirmFlag) return;
+
+    setIsDisputing(true);
+    setVoteNotice(null);
+
+    // Optimistic dispute increment
+    const nextDispute = disputeCount + 1;
+    setDisputeCount(nextDispute);
+    setUserDisputed(true);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`tinggle_disputed_${incident.id}`, "true");
+    }
+
+    if (onVote) onVote(incident.id, "dispute");
+
+    try {
+      const res = await fetch(`/api/incidents/${incident.id}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userEmail,
+          userLat: userCoords?.lat,
+          userLng: userCoords?.lng,
+          voteType: "dispute",
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Failed to flag report.");
+      }
+
+      if (json.data?.dispute_count !== undefined) {
+        setDisputeCount(json.data.dispute_count);
+      }
+      setVoteNotice("🚩 Report flagged as fake. Credibility rating decreased.");
+      setTimeout(() => setVoteNotice(null), 4000);
+    } catch (err) {
+      console.error("Dispute error:", err.message);
+      setVoteNotice(err.message);
+      setTimeout(() => setVoteNotice(null), 3500);
+    } finally {
+      setIsDisputing(false);
     }
   };
 
@@ -243,6 +334,14 @@ export default function IncidentCard({ incident, onVote }) {
                   </span>
                 )}
 
+                {/* Dispute / Fake Badge (visible to all users) */}
+                {disputeCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-md font-mono text-[10px] font-bold tracking-wide flex items-center gap-1 bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse">
+                    <ShieldAlert className="w-3 h-3 text-red-400" />
+                    <span>{disputeCount} FLAGGED FAKE</span>
+                  </span>
+                )}
+
                 <span className="font-mono text-xs text-teal-400 font-medium">
                   #{incident.id}
                 </span>
@@ -267,12 +366,58 @@ export default function IncidentCard({ incident, onVote }) {
             <p className="text-sm text-zinc-300/90 mt-1 leading-relaxed line-clamp-2 md:line-clamp-3">
               {incident.description}
             </p>
+
+            {/* Emergency SOS Status Alert for Citizens */}
+            {(incident.id?.startsWith("SOS-") || incident.category === "SOS" || incident.title?.includes("SOS")) && (
+              <div className="mt-2.5">
+                {incident.status?.includes("EN ROUTE") || incident.status?.includes("DISPATCHED") ? (
+                  <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-between text-xs font-mono text-emerald-300 gap-2">
+                    <div className="flex items-center gap-2">
+                      <Ambulance className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" />
+                      <span>
+                        🚑 <strong>HELP IS ARRIVING / EN ROUTE!</strong> Emergency responders dispatched by Command HQ.
+                      </span>
+                    </div>
+                    <span className="text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30 font-bold shrink-0">
+                      DISPATCHED
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/40 flex items-center justify-between text-xs font-mono text-red-300 gap-2">
+                    <div className="flex items-center gap-2">
+                      <AlertOctagon className="w-4 h-4 text-red-400 animate-pulse shrink-0" />
+                      <span>
+                        🚨 <strong>CRITICAL EMERGENCY SOS:</strong> Authorities notified. Nearby eyewitnesses stay vigilant.
+                      </span>
+                    </div>
+                    <span className="text-[10px] bg-red-500/20 px-2 py-0.5 rounded border border-red-500/30 font-bold shrink-0">
+                      PRIORITY #1
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Community Dispute Warning Strip (visible to all users if disputes exist) */}
+            {disputeCount > 0 && (
+              <div className="mt-2.5 p-2 rounded-xl bg-red-950/40 border border-red-500/40 text-xs font-mono text-red-200 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span>
+                    ⚠️ <strong>COMMUNITY DISPUTE:</strong> {disputeCount} citizen{disputeCount > 1 ? "s" : ""} flagged this report as suspected fake.
+                  </span>
+                </div>
+                <span className="text-[10px] bg-red-500/20 px-2 py-0.5 rounded border border-red-500/40 text-red-300 font-bold shrink-0">
+                  -{Math.min(60, disputeCount * 20)}% TRUST PENALTY
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Action Row */}
           <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-white/5 flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Upvote Button (Self-upvote prevented & Debunked locked) */}
+              {/* Upvote Button */}
               {cred.isDebunked ? (
                 <button
                   type="button"
@@ -309,12 +454,41 @@ export default function IncidentCard({ incident, onVote }) {
                 <button
                   type="button"
                   onClick={handleUpvote}
-                  disabled={isVoting}
-                  className="px-3 py-1.5 rounded-lg font-mono text-xs tracking-wider flex items-center gap-1.5 bg-[#0b101c] hover:bg-emerald-500/20 text-emerald-400 border border-white/10 hover:border-emerald-500/40 transition-all cursor-pointer shadow-sm active:scale-95"
+                  disabled={isVoting || userDisputed}
+                  className="px-3 py-1.5 rounded-lg font-mono text-xs tracking-wider flex items-center gap-1.5 bg-[#0b101c] hover:bg-emerald-500/20 text-emerald-400 border border-white/10 hover:border-emerald-500/40 transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
                   title="Upvote this civic alert to increase its credibility"
                 >
                   <ArrowBigUp className="w-4 h-4" />
                   <span>▲ Upvote ({confirmCount})</span>
+                </button>
+              )}
+
+              {/* ── Option for users to Report/Flag if the news is fake (Beside Upvote) ── */}
+              {userDisputed ? (
+                <button
+                  type="button"
+                  disabled
+                  onClick={(e) => e.stopPropagation()}
+                  className="px-3 py-1.5 rounded-lg font-mono text-xs tracking-wider flex items-center gap-1.5 bg-red-600/30 text-red-300 border border-red-500/50 shadow-sm cursor-default"
+                  title="You have flagged this alert as fake"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
+                  <span>🚩 Flagged Fake ({disputeCount})</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleReportFake}
+                  disabled={isDisputing || isVoting || cred.isDebunked}
+                  className="px-3 py-1.5 rounded-lg font-mono text-xs tracking-wider flex items-center gap-1.5 bg-[#0b101c] hover:bg-red-500/20 text-red-400 border border-white/10 hover:border-red-500/40 transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+                  title="Report if this news is fake or false information"
+                >
+                  {isDisputing ? (
+                    <span className="w-3.5 h-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                  )}
+                  <span>🚩 Flag as Fake ({disputeCount})</span>
                 </button>
               )}
 

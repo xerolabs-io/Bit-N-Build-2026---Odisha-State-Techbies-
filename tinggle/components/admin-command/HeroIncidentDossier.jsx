@@ -142,13 +142,15 @@ export default function HeroIncidentDossier({
             <div className="grid grid-cols-3 gap-3 bg-[#0b101c] border border-white/5 p-4 rounded-xl">
               <div className="flex flex-col">
                 <span className="font-mono text-[10px] md:text-xs text-zinc-400 uppercase tracking-wider">
-                  CITIZEN CONFIRMATIONS
+                  COMMUNITY VOTES
                 </span>
-                <span className="text-base md:text-xl font-bold font-heading text-teal-400">
-                  {incident.confirm_count ?? 1} Verified
+                <span className="text-base md:text-xl font-bold font-heading text-emerald-400">
+                  ▲ {incident.confirm_count ?? 1} Upvotes
                 </span>
-                <span className="font-mono text-[11px] text-zinc-400">
-                  {incident.dispute_count ?? 0} Disputes
+                <span className={`font-mono text-[11px] font-semibold ${
+                  (incident.dispute_count || 0) > 0 ? "text-rose-400" : "text-zinc-400"
+                }`}>
+                  🚩 {incident.dispute_count ?? 0} Flagged Fake
                 </span>
               </div>
 

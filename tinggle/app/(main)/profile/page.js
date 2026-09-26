@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Flame,
   Zap,
+  Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -48,10 +49,56 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterTab, setFilterTab] = useState("all"); // "all" | "active" | "resolved" | "flagged"
+  const [phone, setPhone] = useState("");
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const [phoneSavedMessage, setPhoneSavedMessage] = useState(null);
 
   const userEmail =
     user?.primaryEmailAddress?.emailAddress ||
     user?.emailAddresses?.[0]?.emailAddress;
+
+  const fetchPhone = useCallback(async () => {
+    if (!userEmail) return;
+    try {
+      const res = await fetch(`/api/user/phone?email=${encodeURIComponent(userEmail)}`);
+      const json = await res.json();
+      if (json.success && json.phone) {
+        setPhone(json.phone);
+      }
+    } catch (e) {
+      console.warn("Failed to fetch phone:", e.message);
+    }
+  }, [userEmail]);
+
+  const handleSavePhone = async (e) => {
+    e?.preventDefault();
+    const cleanDigits = phone.replace(/[^\d+]/g, "");
+    if (!cleanDigits || cleanDigits.length < 10) {
+      alert("Please enter a valid mobile number with at least 10 digits.");
+      return;
+    }
+    setIsSavingPhone(true);
+    setPhoneSavedMessage(null);
+    try {
+      const res = await fetch("/api/user/phone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: userEmail, phone: cleanDigits }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPhone(json.phone);
+        setPhoneSavedMessage("Emergency phone number verified & saved to your Citizen Profile!");
+        setTimeout(() => setPhoneSavedMessage(null), 4000);
+      } else {
+        alert(json.error || "Failed to save phone number.");
+      }
+    } catch (err) {
+      alert("Error saving phone: " + err.message);
+    } finally {
+      setIsSavingPhone(false);
+    }
+  };
 
   const fetchProfile = useCallback(async () => {
     if (!userEmail) return;
@@ -75,8 +122,9 @@ export default function ProfilePage() {
   useEffect(() => {
     if (isLoaded && isSignedIn && userEmail) {
       fetchProfile();
+      fetchPhone();
     }
-  }, [isLoaded, isSignedIn, userEmail, fetchProfile]);
+  }, [isLoaded, isSignedIn, userEmail, fetchProfile, fetchPhone]);
 
   // Filtered reports
   const incidents = profileData?.incidents || [];
@@ -268,6 +316,60 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* ── Emergency Contact Phone Dispatch Card ────────────────────────── */}
+        <div className="p-5 md:p-6 bg-[#141b2a] border border-white/10 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-lg">
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
+              <Phone className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm md:text-base font-bold text-white font-heading">
+                  Emergency Contact Phone Number
+                </h3>
+                {phone ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    VERIFIED FOR SOS
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    REQUIRED FOR SOS
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-zinc-400 font-mono mt-0.5">
+                Responders & dispatchers call this line immediately when you trigger an emergency SOS beacon.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSavePhone} className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-56">
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 9876543210"
+                className="w-full bg-[#0a0f1d] border border-white/10 focus:border-red-500/60 rounded-xl px-3.5 py-2 text-xs font-mono text-white placeholder:text-zinc-500 outline-none transition-all"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isSavingPhone}
+              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-mono text-xs font-bold transition-all shadow-md shadow-red-950/40 cursor-pointer disabled:opacity-50 shrink-0"
+            >
+              {isSavingPhone ? "SAVING..." : "SAVE PHONE"}
+            </button>
+          </form>
+        </div>
+
+        {phoneSavedMessage && (
+          <div className="p-3 bg-emerald-500/15 border border-emerald-500/40 rounded-xl text-xs font-mono text-emerald-300 flex items-center gap-2 -mt-4 animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{phoneSavedMessage}</span>
+          </div>
+        )}
 
         {/* ── Key Metrics Cards ────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">

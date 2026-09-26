@@ -79,17 +79,25 @@ export default function IncidentDetailView({ initialIncident }) {
     );
   }, [userCoords, incident]);
 
-  // ── Vote State: sync from DB (cross-device, cross-browser, incognito-safe) ──
   const [hasVoted, setHasVoted] = useState(false);
   const [myVoteType, setMyVoteType] = useState(null); // "upvote" | "dispute" | null
   const [isVoting, setIsVoting] = useState(false);
+  const [isDisputing, setIsDisputing] = useState(false);
   const [voteNotice, setVoteNotice] = useState(null);
 
   useEffect(() => {
-    // 1. Fast pre-load from localStorage (prevents flash on page load)
+    // 1. Fast pre-load from localStorage
     if (typeof window !== "undefined" && incident?.id) {
-      const stored = localStorage.getItem(`tinggle_upvoted_${incident.id}`);
-      if (stored) setHasVoted(true);
+      const storedUpvote = localStorage.getItem(`tinggle_upvoted_${incident.id}`);
+      if (storedUpvote) {
+        setHasVoted(true);
+        setMyVoteType("upvote");
+      }
+      const storedDispute = localStorage.getItem(`tinggle_disputed_${incident.id}`);
+      if (storedDispute) {
+        setHasVoted(true);
+        setMyVoteType("dispute");
+      }
     }
 
     // 2. Authoritative check from DB (overrides localStorage if out of sync)
@@ -224,6 +232,80 @@ export default function IncidentDetailView({ initialIncident }) {
     }
   };
 
+  // ─── Report Fake / Dispute Handler ─────────────────────────────────────────
+  const handleReportFake = async () => {
+    if (!isSignedIn) {
+      setVoteNotice("Sign in to flag or dispute this incident report.");
+      setTimeout(() => setVoteNotice(null), 3500);
+      return;
+    }
+    if (isAuthor) {
+      setVoteNotice("You cannot flag your own incident report.");
+      setTimeout(() => setVoteNotice(null), 3500);
+      return;
+    }
+    if (hasVoted || isDisputing || isVoting) {
+      setVoteNotice("You have already submitted your assessment for this incident.");
+      setTimeout(() => setVoteNotice(null), 3500);
+      return;
+    }
+
+    const confirmFlag = window.confirm(
+      `Are you sure you want to flag "${incident.title}" as fake news / false report?\n\nThis will lower its community trust score and warn all other citizens.`
+    );
+    if (!confirmFlag) return;
+
+    setIsDisputing(true);
+    setVoteNotice(null);
+
+    const prevIncident = incident;
+    setIncident((prev) => ({
+      ...prev,
+      dispute_count: (prev.dispute_count || 0) + 1,
+    }));
+    setHasVoted(true);
+    setMyVoteType("dispute");
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`tinggle_disputed_${incident.id}`, "true");
+    }
+
+    try {
+      const res = await fetch(`/api/incidents/${incident.id}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userEmail,
+          userLat: userCoords?.lat,
+          userLng: userCoords?.lng,
+          voteType: "dispute",
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setIncident(prevIncident);
+        setHasVoted(false);
+        setMyVoteType(null);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(`tinggle_disputed_${incident.id}`);
+        }
+        throw new Error(json.error || "Failed to flag report.");
+      }
+
+      if (json.data) {
+        setIncident(json.data);
+      }
+      setVoteNotice("🚩 Incident flagged as fake. Credibility score adjusted across the network.");
+      setTimeout(() => setVoteNotice(null), 4000);
+    } catch (err) {
+      console.error("Dispute error:", err.message);
+      setVoteNotice(err.message);
+      setTimeout(() => setVoteNotice(null), 4000);
+    } finally {
+      setIsDisputing(false);
+    }
+  };
+
   // ─── Comment Image Attachment Handlers ─────────────────────────────────────
   const handleCommentImageChange = (e) => {
     const file = e.target.files?.[0];
@@ -343,6 +425,13 @@ export default function IncidentDetailView({ initialIncident }) {
               <span className="px-3 py-1 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30 font-mono text-xs font-semibold uppercase">
                 {incident.status || "ACTIVE CIVIC REPORT"}
               </span>
+
+              {incident.dispute_count > 0 && (
+                <span className="px-3 py-1 rounded-lg bg-red-500/20 text-red-300 border border-red-500/40 font-mono text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                  <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
+                  <span>{incident.dispute_count} CITIZENS FLAGGED FAKE</span>
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2 font-mono text-xs text-zinc-400">
@@ -478,8 +567,7 @@ export default function IncidentDetailView({ initialIncident }) {
                 )}
               </div>
 
-              {/* Upvote Button with Feedback */}
-              <div className="flex items-center gap-3 flex-wrap">
+                {/* Upvote Button with Feedback */}
                 {credibility?.isDebunked ? (
                   <Button
                     disabled
@@ -496,7 +584,7 @@ export default function IncidentDetailView({ initialIncident }) {
                     <ArrowBigUp className="w-5 h-5 text-zinc-500" />
                     <span>▲ Upvote ({incident.confirm_count || 1}) · Your Report</span>
                   </Button>
-                ) : hasVoted ? (
+                ) : hasVoted && myVoteType === "upvote" ? (
                   <Button
                     disabled
                     className="h-11 px-6 bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 font-mono font-bold text-sm tracking-wider shadow-lg flex items-center gap-2 cursor-default"
@@ -507,9 +595,9 @@ export default function IncidentDetailView({ initialIncident }) {
                 ) : (
                   <Button
                     onClick={handleUpvote}
-                    disabled={isVoting}
+                    disabled={isVoting || hasVoted}
                     variant="primary"
-                    className="h-11 px-6 font-mono font-bold text-sm tracking-wider flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer"
+                    className="h-11 px-6 font-mono font-bold text-sm tracking-wider flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer disabled:opacity-50"
                   >
                     {isVoting ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -520,8 +608,33 @@ export default function IncidentDetailView({ initialIncident }) {
                   </Button>
                 )}
 
+                {/* ── Flag as Fake / Dispute Button (Beside Upvote) ────────── */}
+                {myVoteType === "dispute" ? (
+                  <Button
+                    disabled
+                    className="h-11 px-5 bg-red-600/30 text-red-300 border border-red-500/50 font-mono font-bold text-sm tracking-wider shadow-lg flex items-center gap-2 cursor-default"
+                  >
+                    <ShieldAlert className="w-5 h-5 text-red-400" />
+                    <span>🚩 Flagged as Fake ({incident.dispute_count || 0})</span>
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleReportFake}
+                    disabled={isDisputing || isVoting || hasVoted || credibility?.isDebunked}
+                    className="h-11 px-5 bg-red-600/15 hover:bg-red-600/25 text-red-300 border border-red-500/40 font-mono font-bold text-sm tracking-wider flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+                    title="Report if this news is fake or false information"
+                  >
+                    {isDisputing ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <ShieldAlert className="w-5 h-5 text-red-400" />
+                    )}
+                    <span>🚩 Flag as Fake ({incident.dispute_count || 0})</span>
+                  </Button>
+                )}
+
                 <span className="text-xs font-mono text-zinc-400">
-                  {incident.confirm_count || 1} Citizen Corroborations Recorded
+                  {incident.confirm_count || 1} Corroborations · {incident.dispute_count || 0} Disputes
                 </span>
               </div>
 

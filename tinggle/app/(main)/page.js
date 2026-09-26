@@ -311,21 +311,58 @@ export default function CitizenPortalPage() {
   // ─── View mode: feed list vs map ──────────────────────────────────────────
   const [viewMode, setViewMode] = useState("feed"); // "feed" | "map"
 
-  // ─── Priority Sorting: 1. Current GPS Location -> 2. Watched Sectors -> 3. Others ───
+  // ─── Priority Sorting: 1. Active SOS Beacon (Nearby/Global) -> 2. GPS Location -> 3. Watched Sectors -> 4. Others ───
   const incidents = useMemo(() => {
     if (!rawCards || rawCards.length === 0) return [];
 
-    const prioritized = rawCards.map((card) => {
+    // Filter out resolved SOS alerts so normal citizens do not see them once safe
+    const visibleCards = rawCards.filter((card) => {
+      const isSos =
+        card.id?.startsWith("SOS-") ||
+        card.category === "SOS" ||
+        card.title?.includes("SOS");
+      const s = String(card.status || "").toUpperCase();
+      const isResolved = s === "RESOLVED" || s.includes("CONTAINED");
+      if (isSos && isResolved) {
+        return false; // Automatically removed from public feed!
+      }
+      return true;
+    });
+
+    const prioritized = visibleCards.map((card) => {
+      const isSos =
+        card.id?.startsWith("SOS-") ||
+        card.category === "SOS" ||
+        card.title?.includes("SOS");
+
       const { priority, badge } = assignPriority(
         card,
         userLat,
         userLng,
         enabledWatchlistNames
       );
+
+      // Active SOS alerts are prioritized at the very top (Priority 0)
+      if (isSos) {
+        const isNearby =
+          card.distanceMiles !== null && card.distanceMiles <= NEARBY_THRESHOLD_MILES;
+        return {
+          ...card,
+          priority: isNearby ? 0 : 0.5,
+          priorityBadge: {
+            type: "near",
+            label: isNearby
+              ? `🚨 NEARBY SOS (${card.distanceMiles} mi)`
+              : "🚨 ACTIVE EMERGENCY SOS",
+          },
+        };
+      }
+
       return { ...card, priority, priorityBadge: badge };
     });
 
     prioritized.sort((a, b) => {
+      // 0. Active SOS first
       // 1. Where user is (GPS)
       // 2. Watched neighborhoods (from watchlist)
       // 3. Other regional/latest news
@@ -442,6 +479,17 @@ export default function CitizenPortalPage() {
     return "~3.2 min";
   }, [incidents]);
 
+  // ─── Active SOS alert in citizen's sector ──────────────────────────────────
+  const activeNearbySos = useMemo(() => {
+    return incidents.find((inc) => {
+      const isSos =
+        inc.id?.startsWith("SOS-") ||
+        inc.category === "SOS" ||
+        inc.title?.includes("SOS");
+      return isSos;
+    });
+  }, [incidents]);
+
   // ─── Add new incident optimistically to feed ───────────────────────────────
   const handleAddNewIncident = useCallback((newCard) => {
     setRawCards((prev) => [newCard, ...prev]);
@@ -454,8 +502,14 @@ export default function CitizenPortalPage() {
         inc.id === incidentId
           ? {
             ...inc,
-            confirmCount: type === "confirm" ? inc.confirmCount + 1 : inc.confirmCount,
-            disputeCount: type === "dispute" ? inc.disputeCount + 1 : inc.disputeCount,
+            confirmCount:
+              type === "confirm" || type === "upvote"
+                ? (inc.confirmCount || 1) + 1
+                : inc.confirmCount,
+            disputeCount:
+              type === "dispute" || type === "fake"
+                ? (inc.disputeCount || 0) + 1
+                : inc.disputeCount,
           }
           : inc
       )
@@ -542,6 +596,77 @@ export default function CitizenPortalPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto w-full px-4 md:px-8 py-8 flex flex-col gap-8 flex-1">
+        {/* ── Active SOS Sector Broadcast Banner ──────────────────────────── */}
+        {activeNearbySos && (
+          <div
+            className={`p-4 md:p-5 rounded-2xl border-2 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 font-mono transition-all duration-300 ${
+              activeNearbySos.status?.includes("EN ROUTE") ||
+              activeNearbySos.status?.includes("DISPATCHED")
+                ? "bg-emerald-950/80 border-emerald-500/70 shadow-emerald-950/60 text-emerald-100"
+                : "bg-red-950/90 border-red-500/80 shadow-red-950/80 text-red-100 animate-pulse"
+            }`}
+          >
+            <div className="flex items-center gap-3.5 w-full sm:w-auto">
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 shadow-lg ${
+                  activeNearbySos.status?.includes("EN ROUTE") ||
+                  activeNearbySos.status?.includes("DISPATCHED")
+                    ? "bg-emerald-500 text-white shadow-emerald-500/40"
+                    : "bg-red-600 text-white shadow-red-600/50"
+                }`}
+              >
+                {activeNearbySos.status?.includes("EN ROUTE") ||
+                activeNearbySos.status?.includes("DISPATCHED")
+                  ? "🚑"
+                  : "🚨"}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs md:text-sm font-black uppercase tracking-wider text-white">
+                    {activeNearbySos.status?.includes("EN ROUTE") ||
+                    activeNearbySos.status?.includes("DISPATCHED")
+                      ? "EMERGENCY RESCUE EN ROUTE IN YOUR AREA"
+                      : "CRITICAL EMERGENCY SOS ACTIVE IN YOUR AREA"}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 font-bold border border-white/10">
+                    #{activeNearbySos.id}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-300 mt-1 truncate">
+                  {activeNearbySos.title} • 📍 {activeNearbySos.location}
+                  {activeNearbySos.distanceMiles !== null && (
+                    <strong className="text-amber-300 ml-1.5">
+                      ({activeNearbySos.distanceMiles} mi away)
+                    </strong>
+                  )}
+                </p>
+                {activeNearbySos.status?.includes("EN ROUTE") && (
+                  <p className="text-[11px] text-emerald-300 font-bold mt-0.5">
+                    ✓ Admin Command HQ dispatched help. Responders are approaching the location.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <span
+                className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${
+                  activeNearbySos.status?.includes("EN ROUTE") ||
+                  activeNearbySos.status?.includes("DISPATCHED")
+                    ? "bg-emerald-500/20 border-emerald-400 text-emerald-300"
+                    : "bg-red-500/20 border-red-400 text-red-300"
+                }`}
+              >
+                {activeNearbySos.status?.includes("EN ROUTE") ||
+                activeNearbySos.status?.includes("DISPATCHED")
+                  ? "🚑 HELP ARRIVING"
+                  : "🚨 AWAITING DISPATCH"}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Report Form */}
         <IncidentReportForm onSubmit={handleAddNewIncident} />
 

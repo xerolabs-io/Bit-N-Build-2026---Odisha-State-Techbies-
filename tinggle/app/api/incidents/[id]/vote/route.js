@@ -168,7 +168,7 @@ export async function POST(req, { params }) {
       (v) => v.vote_type === "upvote" && v.is_local
     ).length;
     const totalDisputes = (voteCounts || []).filter(
-      (v) => v.vote_type === "dispute"
+      (v) => v.vote_type === "dispute" || v.vote_type === "fake"
     ).length;
 
     // ── 7. Recalculate credibility with real numbers ───────────────────────
@@ -203,12 +203,16 @@ export async function POST(req, { params }) {
       );
     }
 
+    const isDispute = voteType === "dispute" || voteType === "fake";
+
     return NextResponse.json({
       success: true,
       data: updated,
       isLocal,
       credibility: cred,
-      message: isLocal
+      message: isDispute
+        ? "🚩 Fake alert flagged! Community credibility adjusted."
+        : isLocal
         ? "📍 Local Upvote recorded! +8% Proximity Credibility applied."
         : "✅ Community Upvote recorded!",
     });

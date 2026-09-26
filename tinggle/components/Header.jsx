@@ -87,16 +87,23 @@ const Header = () => {
                     <button
                         type="button"
                         id="header-sos-btn"
+                        disabled={isAdmin}
                         onClick={() => {
+                            if (isAdmin) return;
                             if (typeof window !== "undefined") {
                                 window.dispatchEvent(new CustomEvent("tinggle:open-sos"));
                             }
                         }}
-                        className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white font-mono text-xs font-black tracking-wider transition-all shadow-lg shadow-red-950/60 hover:scale-105 active:scale-95 border border-red-400/50 cursor-pointer animate-pulse"
-                        title="Trigger Emergency SOS Panic Alert"
+                        className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono text-xs font-black tracking-wider transition-all border ${
+                            isAdmin
+                                ? "bg-zinc-800/80 text-zinc-500 border-zinc-700/60 cursor-not-allowed opacity-60 shadow-none"
+                                : "bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white shadow-lg shadow-red-950/60 hover:scale-105 active:scale-95 border-red-400/50 cursor-pointer animate-pulse"
+                        }`}
+                        title={isAdmin ? "Emergency SOS is disabled for Admin accounts" : "Trigger Emergency SOS Panic Alert"}
                     >
-                        <AlertOctagon className="w-3.5 h-3.5 text-white" />
+                        <AlertOctagon className="w-3.5 h-3.5" />
                         <span>SOS HELP</span>
+                        {isAdmin && <span className="text-[10px] text-zinc-400 font-normal font-sans">(Disabled)</span>}
                     </button>
 
                     {/* Admin Dashboard Button - visible only to verified Admins */}

@@ -127,12 +127,14 @@ export default function SecondaryIncidentQueue({
                 </div>
 
                 <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto justify-end">
-                  <div className="text-right hidden sm:block mr-2 font-mono text-xs">
-                    <div className="text-[10px] text-zinc-500 uppercase">
-                      CONFIRMED
+                  <div className="text-right hidden sm:flex flex-col items-end mr-2 font-mono text-xs">
+                    <div className="text-emerald-400 font-semibold">
+                      ▲ {item.confirm_count ?? 1} Upvotes
                     </div>
-                    <div className="text-teal-400 font-semibold">
-                      {item.confirm_count ?? 1} Reports
+                    <div className={`text-[11px] font-semibold ${
+                      (item.dispute_count || 0) > 0 ? "text-rose-400 font-bold" : "text-zinc-500"
+                    }`}>
+                      🚩 {item.dispute_count ?? 0} Fake
                     </div>
                   </div>
 
