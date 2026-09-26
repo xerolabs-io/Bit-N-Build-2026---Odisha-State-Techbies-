@@ -109,8 +109,8 @@ export async function POST(req) {
         longitude: longitude || null,
         image_url: image_url || null,
         is_anonymous: Boolean(is_anonymous),
-        reporter_email: is_anonymous ? null : (reporter_email || null),
-        confirm_count: 1,
+        reporter_email: reporter_email || null,
+        confirm_count: 0,
         dispute_count: 0,
         trust_score: "COMMUNITY TRUST: VERIFYING",
         created_at: new Date().toISOString(),
@@ -143,6 +143,15 @@ export async function POST(req) {
 
 export async function PATCH(req) {
   try {
+    // ── Auth Guard ──────────────────────────────────────────────────────────
+    const isValid = await validateApiKey(req);
+    if (!isValid) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: Admin API key required." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const { id, status, trust_score, confirm_count, dispute_count } = body;
 
@@ -192,6 +201,15 @@ export async function PATCH(req) {
 
 export async function DELETE(req) {
   try {
+    // ── Auth Guard ──────────────────────────────────────────────────────────
+    const isValid = await validateApiKey(req);
+    if (!isValid) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: Admin API key required." },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 

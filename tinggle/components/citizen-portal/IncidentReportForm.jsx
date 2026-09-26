@@ -97,7 +97,15 @@ export default function IncidentReportForm({ onSubmit }) {
       return;
     }
 
-    if (!headline.trim()) return;
+    if (!headline.trim()) {
+      setSubmitError("Incident headline is mandatory.");
+      return;
+    }
+
+    if (!description.trim()) {
+      setSubmitError("Additional details are mandatory. Please describe what happened.");
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmitError(null);
@@ -178,8 +186,8 @@ export default function IncidentReportForm({ onSubmit }) {
     [GEO_STATES.IDLE]: "ACQUIRE",
     [GEO_STATES.LOCATING]: "LOCKING...",
     [GEO_STATES.ACQUIRED]: "RE-LOCK",
-    [GEO_STATES.ERROR]: "RETRY",
-  }[gpsState];
+    [GEO_STATES.ERROR]: "RE-LOCK / RETRY",
+  }[gpsState] || "RE-LOCK";
 
   const gpsTextColor = {
     [GEO_STATES.IDLE]: "text-sky-400",
@@ -270,16 +278,18 @@ export default function IncidentReportForm({ onSubmit }) {
               />
             </div>
 
-            {/* Description */}
+            {/* Description (Mandatory) */}
             <div>
-              <label htmlFor="desc-input" className="block text-xs uppercase font-mono text-zinc-400 mb-1.5">
-                Additional Details <span className="text-zinc-600">(optional)</span>
+              <label htmlFor="desc-input" className="block text-xs uppercase font-mono text-zinc-400 mb-1.5 flex items-center justify-between">
+                <span>Additional Details *</span>
+                <span className="text-amber-400 font-semibold lowercase text-[11px]">(mandatory)</span>
               </label>
               <textarea
                 id="desc-input"
+                required
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe what you saw, heard, or experienced..."
+                placeholder="Provide a detailed description of what you saw, heard, or experienced (mandatory)..."
                 rows={2}
                 className="w-full bg-[#0a0f19] text-white text-sm px-4 py-3 rounded-xl border border-white/10 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 placeholder:text-zinc-500 transition-all resize-none"
               />
@@ -315,11 +325,11 @@ export default function IncidentReportForm({ onSubmit }) {
           </div>
 
           {/* Right: Upload & GPS */}
-          <div className="w-full md:w-80 flex flex-col gap-3 shrink-0">
-            {/* Media Upload */}
+          <div className="w-full md:w-84 lg:w-96 flex flex-col gap-3 shrink-0">
+            {/* Media Upload (Expanded to take all available space) */}
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="bg-[#0b101c] border border-dashed border-white/15 hover:border-amber-400/50 p-3 rounded-xl flex flex-col items-center justify-center gap-1.5 text-center cursor-pointer transition-all hover:bg-[#111726] group relative overflow-hidden min-h-[92px]"
+              className="flex-1 bg-[#0b101c] border-2 border-dashed border-white/15 hover:border-amber-400/60 p-4 rounded-xl flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition-all hover:bg-[#111726] group relative overflow-hidden min-h-[180px]"
             >
               <input
                 ref={fileInputRef}
@@ -329,8 +339,17 @@ export default function IncidentReportForm({ onSubmit }) {
                 onChange={handleFileChange}
               />
               {imagePreview ? (
-                <div className="relative w-full h-20 rounded-lg overflow-hidden">
-                  <Image src={imagePreview} alt="Uploaded preview" fill className="object-cover" />
+                <div className="relative w-full h-full min-h-[170px] rounded-lg overflow-hidden group/img">
+                  <Image
+                    src={imagePreview}
+                    alt="Uploaded preview"
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover/img:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent pointer-events-none" />
+                  <span className="absolute bottom-2.5 left-2.5 text-[10px] font-mono font-bold bg-black/85 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30">
+                    ✓ EVIDENCE PHOTO ATTACHED
+                  </span>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -339,17 +358,29 @@ export default function IncidentReportForm({ onSubmit }) {
                       setImageFile(null);
                       if (fileInputRef.current) fileInputRef.current.value = "";
                     }}
-                    className="absolute top-1 right-1 p-1 bg-black/80 hover:bg-red-600 rounded-full text-white transition-colors"
+                    className="absolute top-2 right-2 p-1.5 bg-black/80 hover:bg-red-600 rounded-full text-white transition-colors cursor-pointer shadow-lg"
+                    title="Remove image"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
-                <>
-                  <UploadCloud className="w-6 h-6 text-zinc-400 group-hover:text-amber-400 group-hover:scale-110 transition-all" />
-                  <span className="text-xs font-semibold text-zinc-200">Attach Photographic Proof</span>
-                  <span className="text-[11px] text-zinc-500">Tap to upload · Max 5MB</span>
-                </>
+                <div className="flex flex-col items-center justify-center gap-2.5 p-2 h-full">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-500/20 transition-all">
+                    <UploadCloud className="w-6 h-6 text-amber-400" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-zinc-100 block font-heading">
+                      Attach Photographic Proof
+                    </span>
+                    <span className="text-xs text-zinc-400 block mt-0.5">
+                      Drop evidence image here or click to browse
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-zinc-400 bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10">
+                    PNG, JPG, WEBP · Max 5MB
+                  </span>
+                </div>
               )}
             </div>
 
@@ -383,9 +414,20 @@ export default function IncidentReportForm({ onSubmit }) {
 
             {/* Show coordinates if acquired */}
             {coords.lat && (
-              <p className="text-[10px] text-zinc-600 font-mono px-1">
-                {coords.lat.toFixed(6)}°N · {coords.lng.toFixed(6)}°E
+              <p className="text-[10px] text-zinc-500 font-mono px-1 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                <span>{coords.lat.toFixed(6)}°N · {coords.lng.toFixed(6)}°E</span>
               </p>
+            )}
+
+            {/* Permission guidance in case user declined */}
+            {gpsState === GEO_STATES.ERROR && (
+              <div className="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/25 p-2 rounded-xl flex items-start gap-1.5 leading-snug">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                <span>
+                  Location was declined. If blocked by browser, click the <strong>lock/tune icon</strong> in your address bar, enable Location, then tap <strong>RE-LOCK / RETRY</strong> to sync coordinates.
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -414,8 +456,8 @@ export default function IncidentReportForm({ onSubmit }) {
               <Button
                 type="submit"
                 variant="primary"
-                disabled={isSubmitting || !headline.trim()}
-                className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer"
+                disabled={isSubmitting || !headline.trim() || !description.trim()}
+                className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 {isSubmitting ? "Broadcasting..." : "Submit Incident Report"}

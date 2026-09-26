@@ -22,7 +22,7 @@ export async function saveOrUpdateUser({
   displayName,
   password,
   isGoogleAuth = false,
-  reputation = 3,
+  reputation = 50,
 }) {
   if (!email) {
     throw new Error("Email is required");

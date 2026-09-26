@@ -1,18 +1,35 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import {
   SectorBanner,
   IncidentReportForm,
   FeedFilterTabs,
   IncidentCard,
-  ScanningSpectrumBanner,
+  IncidentPagination,
   SpatialRadarWidget,
   NeighborhoodWatchlistWidget,
 } from "@/components/citizen-portal";
 import { useGeoLocation, GEO_STATES } from "@/hooks/useGeoLocation";
 import { useUser } from "@clerk/nextjs";
-import { Loader2, AlertTriangle, MapPin, RefreshCw } from "lucide-react";
+import { Loader2, AlertTriangle, MapPin, RefreshCw, List, Map, Wifi } from "lucide-react";
+import supabaseBrowser from "@/lib/supabase-browser.lib";
+
+// Dynamic import for LiveIncidentMap (Leaflet needs client-only rendering)
+const LiveIncidentMap = dynamic(
+  () => import("@/components/citizen-portal/LiveIncidentMap"),
+  {
+    ssr: false, loading: () => (
+      <div className="w-full h-[540px] rounded-2xl bg-[#0d131e] border border-white/10 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-zinc-500 font-mono">Loading map engine...</p>
+        </div>
+      </div>
+    )
+  }
+);
 
 // ─── Haversine distance in miles between two lat/lng points ───────────────────
 function haversineDistance(lat1, lng1, lat2, lng2) {
@@ -91,6 +108,10 @@ function dbRowToCard(row, userLat, userLng) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     location: row.location_text || "Location not provided",
+    latitude: row.latitude,
+    longitude: row.longitude,
+    reporterEmail: row.reporter_email,
+    isAnonymous: row.is_anonymous,
     distanceMiles: dist ? parseFloat(dist.toFixed(2)) : null,
     description: row.description || "",
     confirmCount: row.confirm_count ?? 1,
@@ -219,6 +240,8 @@ export default function CitizenPortalPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [activeFilter, setActiveFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // ─── Fetch incidents from DB ───────────────────────────────────────────────
   const fetchIncidents = useCallback(async () => {
@@ -242,6 +265,51 @@ export default function CitizenPortalPage() {
   useEffect(() => {
     fetchIncidents();
   }, [fetchIncidents]);
+
+  // ─── Supabase Realtime: live incident updates ──────────────────────────────
+  const [realtimeActive, setRealtimeActive] = useState(false);
+
+  useEffect(() => {
+    const channel = supabaseBrowser
+      .channel("tinggle-incidents-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "incidents" },
+        (payload) => {
+          const { eventType, new: newRow, old: oldRow } = payload;
+
+          if (eventType === "INSERT" && newRow) {
+            // New report filed → prepend to feed
+            const card = dbRowToCard(newRow, userLat, userLng);
+            setRawCards((prev) => {
+              // Avoid duplicates (optimistic update may have already added it)
+              if (prev.some((c) => c.id === card.id)) return prev;
+              return [card, ...prev];
+            });
+          } else if (eventType === "UPDATE" && newRow) {
+            // Status / vote count changed → patch in-place
+            const updated = dbRowToCard(newRow, userLat, userLng);
+            setRawCards((prev) =>
+              prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+            );
+          } else if (eventType === "DELETE" && oldRow) {
+            // Admin deleted → remove from feed
+            setRawCards((prev) => prev.filter((c) => c.id !== oldRow.id));
+          }
+        }
+      )
+      .subscribe((status) => {
+        setRealtimeActive(status === "SUBSCRIBED");
+      });
+
+    return () => {
+      supabaseBrowser.removeChannel(channel);
+      setRealtimeActive(false);
+    };
+  }, [userLat, userLng]);
+
+  // ─── View mode: feed list vs map ──────────────────────────────────────────
+  const [viewMode, setViewMode] = useState("feed"); // "feed" | "map"
 
   // ─── Priority Sorting: 1. Current GPS Location -> 2. Watched Sectors -> 3. Others ───
   const incidents = useMemo(() => {
@@ -300,6 +368,27 @@ export default function CitizenPortalPage() {
         return incidents;
     }
   }, [incidents, activeFilter]);
+
+  // ─── Pagination Logic ──────────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / itemsPerPage));
+
+  // Reset to page 1 whenever active filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter]);
+
+  // Ensure currentPage doesn't exceed totalPages when list size shrinks
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  // Slice incidents for current page view
+  const paginatedIncidents = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredIncidents.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredIncidents, currentPage, itemsPerPage]);
 
   // ─── Real Response Velocity Metric (calculated from actual report turnaround) ──
   const responseVelocity = useMemo(() => {
@@ -438,14 +527,14 @@ export default function CitizenPortalPage() {
       );
     }
 
-    return filteredIncidents.map((incident) => (
+    return paginatedIncidents.map((incident) => (
       <IncidentCard key={incident.id} incident={incident} onVote={handleVote} />
     ));
   };
 
   return (
     <div className="min-h-screen bg-[#0d131e] text-zinc-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
-      {/* Sector Banner — real count and response velocity from DB */}
+      {/* Sector Banner */}
       <SectorBanner
         activeCount={incidents.length}
         responseVelocity={responseVelocity}
@@ -456,37 +545,102 @@ export default function CitizenPortalPage() {
         {/* Report Form */}
         <IncidentReportForm onSubmit={handleAddNewIncident} />
 
-        {/* Two-Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left: Feed (8 cols) */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            <FeedFilterTabs
-              activeFilter={activeFilter}
-              onSelectFilter={setActiveFilter}
-              totalCount={filteredIncidents.length}
-              onRefresh={fetchIncidents}
-              isRefreshing={isLoading}
-            />
-
-            <div className="flex flex-col gap-4">
-              {renderFeedContent()}
-            </div>
-
-            <ScanningSpectrumBanner />
+        {/* ── View Mode Switcher + Realtime badge ──────────────────────────── */}
+        <div className="flex items-center justify-between">
+          {/* FEED / MAP tabs */}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-[#141b2a] border border-white/10">
+            <button
+              onClick={() => setViewMode("feed")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${viewMode === "feed"
+                  ? "bg-amber-500 text-black shadow-lg shadow-amber-500/20"
+                  : "text-zinc-400 hover:text-zinc-100"
+                }`}
+            >
+              <List className="w-4 h-4" />
+              Feed
+            </button>
+            <button
+              onClick={() => setViewMode("map")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${viewMode === "map"
+                  ? "bg-sky-500 text-black shadow-lg shadow-sky-500/20"
+                  : "text-zinc-400 hover:text-zinc-100"
+                }`}
+            >
+              <Map className="w-4 h-4" />
+              Live Map
+            </button>
           </div>
 
-          {/* Right: Sidebar (4 cols) */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            <SpatialRadarWidget incidents={incidents} />
-            <NeighborhoodWatchlistWidget
-              watchlist={watchlist}
-              incidents={incidents}
-              onWatchlistChange={handleWatchlistChange}
-              isSaving={isSavingWatchlist}
-              isLoading={isLoadingWatchlist}
+          {/* Realtime connection status */}
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono font-bold transition-all duration-500 ${realtimeActive
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                : "bg-zinc-800/50 border-zinc-700 text-zinc-500"
+              }`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${realtimeActive ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"
+                }`}
             />
+            <Wifi className="w-3 h-3" />
+            {realtimeActive ? "LIVE UPDATES ACTIVE" : "Connecting..."}
           </div>
         </div>
+
+        {/* ── Map View ─────────────────────────────────────────────────────── */}
+        {viewMode === "map" && (
+          <LiveIncidentMap
+            incidents={incidents}
+            realtimeActive={realtimeActive}
+            userLat={userLat}
+            userLng={userLng}
+          />
+        )}
+
+        {/* ── Feed View (Two-Column Layout) ─────────────────────────────────*/}
+        {viewMode === "feed" && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left: Feed (8 cols) */}
+            <div className="lg:col-span-8 flex flex-col gap-6">
+              <div id="feed-top-anchor" className="scroll-mt-6" />
+              <FeedFilterTabs
+                activeFilter={activeFilter}
+                onSelectFilter={setActiveFilter}
+                totalCount={filteredIncidents.length}
+                onRefresh={fetchIncidents}
+                isRefreshing={isLoading}
+              />
+
+              <div className="flex flex-col gap-4">
+                {renderFeedContent()}
+              </div>
+
+              {filteredIncidents.length > 0 && !isLoading && !fetchError && (
+                <IncidentPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredIncidents.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onItemsPerPageChange={setItemsPerPage}
+                  pageSizeOptions={[5, 10]}
+                />
+              )}
+            </div>
+
+            {/* Right: Sidebar (4 cols) */}
+            <div className="lg:col-span-4 flex flex-col gap-6">
+              <SpatialRadarWidget incidents={incidents} />
+              <NeighborhoodWatchlistWidget
+                watchlist={watchlist}
+                incidents={incidents}
+                onWatchlistChange={handleWatchlistChange}
+                isSaving={isSavingWatchlist}
+                isLoading={isLoadingWatchlist}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

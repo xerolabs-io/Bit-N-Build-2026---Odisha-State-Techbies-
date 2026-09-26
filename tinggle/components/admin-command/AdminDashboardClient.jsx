@@ -105,17 +105,26 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
   }, [fetchIncidents]);
 
   // ─── Separate Active Incidents vs Solved Incidents ─────────────────────────
-  const activeIncidents = useMemo(() => {
-    return incidents.filter(
-      (i) => i.status !== "RESOLVED & CONTAINED" && i.status !== "SOLVED"
+  const isIncidentClosed = useCallback((status) => {
+    if (!status) return false;
+    const s = String(status).toUpperCase();
+    return (
+      s === "RESOLVED & CONTAINED" ||
+      s === "SOLVED" ||
+      s.includes("FAKE") ||
+      s.includes("DISINFORMATION") ||
+      s.includes("DEBUNKED") ||
+      s.includes("HOAX")
     );
-  }, [incidents]);
+  }, []);
+
+  const activeIncidents = useMemo(() => {
+    return incidents.filter((i) => !isIncidentClosed(i.status));
+  }, [incidents, isIncidentClosed]);
 
   const solvedIncidents = useMemo(() => {
-    return incidents.filter(
-      (i) => i.status === "RESOLVED & CONTAINED" || i.status === "SOLVED"
-    );
-  }, [incidents]);
+    return incidents.filter((i) => isIncidentClosed(i.status));
+  }, [incidents, isIncidentClosed]);
 
   // Currently focused incident
   const currentIncident = useMemo(() => {
@@ -144,7 +153,10 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
 
       const res = await fetch("/api/incidents", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+        },
         body: JSON.stringify({ id, ...updatePayload }),
       });
 
@@ -170,7 +182,10 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
       // 1. Send update to Supabase DB: mark as resolved & contained with dispatched unit
       const res = await fetch("/api/incidents", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+        },
         body: JSON.stringify({
           id: incidentToDispatch.id,
           status: "RESOLVED & CONTAINED",
@@ -217,13 +232,76 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
     }
   };
 
+  // ─── Action: Flag as Fake / Disinformation / Hoax ─────────────────────────
+  const handleFlagFake = async (reason = "FLAGGED AS FAKE BY HQ") => {
+    if (!currentIncident) return;
+    const confirmAction = window.confirm(
+      `Are you sure you want to flag incident #${currentIncident.id} ("${currentIncident.title}") as Fake / Disinformation?\n\nThis will revoke credibility, lock public voting, and archive it from the active queue.`
+    );
+    if (!confirmAction) return;
+
+    setActionLoading(true);
+    const incidentToFlag = currentIncident;
+
+    try {
+      const res = await fetch("/api/incidents", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+        },
+        body: JSON.stringify({
+          id: incidentToFlag.id,
+          status: "FLAGGED DISINFORMATION",
+          trust_score: reason,
+          dispute_count: (incidentToFlag.dispute_count || 0) + 10,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to flag incident in database");
+      }
+
+      setIncidents((prev) =>
+        prev.map((item) =>
+          item.id === incidentToFlag.id
+            ? {
+                ...item,
+                status: "FLAGGED DISINFORMATION",
+                trust_score: reason,
+                dispute_count: (incidentToFlag.dispute_count || 0) + 10,
+              }
+            : item
+        )
+      );
+
+      // Automatically advance to take next issue from active queue
+      const remaining = activeIncidents.filter((i) => i.id !== incidentToFlag.id);
+      if (remaining.length > 0) {
+        setSelectedIncidentId(remaining[0].id);
+      } else {
+        setSelectedIncidentId(null);
+      }
+    } catch (err) {
+      console.error("Error flagging incident:", err);
+      alert(`Flag Error: ${err.message}`);
+      fetchIncidents(true);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // ─── Action: Reopen Solved Incident ───────────────────────────────────────
   const handleReopenIncident = async (id) => {
     setActionLoading(true);
     try {
       const res = await fetch("/api/incidents", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+        },
         body: JSON.stringify({
           id,
           status: "PENDING CIVIC CONFIRMATION",
@@ -384,6 +462,16 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                       {dispatches[currentIncident.id] || currentIncident.trust_score} (En Route)
                     </span>
                   )}
+
+                  {currentIncident.status &&
+                    (currentIncident.status.includes("FLAGGED") ||
+                      currentIncident.status.includes("FAKE") ||
+                      currentIncident.status.includes("DEBUNKED")) && (
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-300 font-mono text-xs md:text-sm font-bold">
+                      <ShieldAlert className="w-4 h-4 text-red-400" />
+                      FLAGGED DISINFORMATION / HOAX
+                    </span>
+                  )}
                 </div>
 
                 {/* Prominent Title */}
@@ -500,26 +588,38 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                   </div>
                 </div>
 
-                {/* Right: Functional Dispatch Help Button (Replaced Mark Solved) */}
-                <div className="flex items-center gap-2">
+                {/* Right: Functional Dispatch Help and Flag as Fake buttons */}
+                <div className="flex items-center gap-2 flex-wrap">
                   {activeTab === "active" ? (
-                    <Button
-                      onClick={handleDispatchHelp}
-                      disabled={actionLoading}
-                      className="h-10 px-5 bg-teal-500 hover:bg-teal-400 text-black font-mono text-xs md:text-sm font-extrabold tracking-wider flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer disabled:opacity-50"
-                    >
-                      {actionLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Dispatching &amp; Syncing DB...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          <span>Dispatch Help</span>
-                        </>
-                      )}
-                    </Button>
+                    <>
+                      <Button
+                        onClick={() => handleFlagFake("FLAGGED AS FAKE BY HQ")}
+                        disabled={actionLoading}
+                        className="h-10 px-3.5 bg-red-600/20 hover:bg-red-600 hover:text-white text-red-300 border border-red-500/40 font-mono text-xs md:text-sm font-bold tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:opacity-50 transition-colors"
+                        title="Mark report as fake news / disinformation and archive from active queue"
+                      >
+                        <ShieldAlert className="w-4 h-4 text-red-400" />
+                        <span>Flag as Fake</span>
+                      </Button>
+
+                      <Button
+                        onClick={handleDispatchHelp}
+                        disabled={actionLoading}
+                        className="h-10 px-5 bg-teal-500 hover:bg-teal-400 text-black font-mono text-xs md:text-sm font-extrabold tracking-wider flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer disabled:opacity-50"
+                      >
+                        {actionLoading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Dispatching &amp; Syncing DB...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            <span>Dispatch Help</span>
+                          </>
+                        )}
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       onClick={() => handleReopenIncident(currentIncident.id)}
@@ -610,8 +710,16 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                       {/* Content details with larger typography */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1 mb-1">
-                          <span className="font-mono text-xs font-bold text-amber-400 truncate">
+                          <span className="font-mono text-xs font-bold text-amber-400 truncate flex items-center gap-1.5">
                             #{item.id} • {item.category?.toUpperCase() || "ALERT"}
+                            {item.status &&
+                              (item.status.includes("FLAGGED") ||
+                                item.status.includes("FAKE") ||
+                                item.status.includes("DEBUNKED")) && (
+                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-red-500/25 text-red-300 border border-red-500/40">
+                                  HOAX
+                                </span>
+                              )}
                           </span>
                           <span className="font-mono text-xs text-zinc-400 shrink-0">
                             {formatElapsed(item.created_at)}

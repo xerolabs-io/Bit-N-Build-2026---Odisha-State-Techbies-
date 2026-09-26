@@ -30,7 +30,7 @@ export async function GET(req) {
         id: user.id,
         email: user.email,
         display_name: user.display_name,
-        reputation: user.reputation ?? 3,
+        reputation: user.reputation ?? 50,
         is_admin: Boolean(user.is_admin || user.admin),
         created_at: user.created_at,
       },

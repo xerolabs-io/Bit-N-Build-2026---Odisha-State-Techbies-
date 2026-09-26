@@ -7,3 +7,4 @@ export { default as SpatialRadarWidget } from "./SpatialRadarWidget";
 export { default as CredibilityIndexWidget } from "./CredibilityIndexWidget";
 export { default as NeighborhoodWatchlistWidget } from "./NeighborhoodWatchlistWidget";
 export { default as InstantSignalDropWidget } from "./InstantSignalDropWidget";
+export { default as IncidentPagination } from "./IncidentPagination";

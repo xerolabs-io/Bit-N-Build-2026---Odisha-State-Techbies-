@@ -39,13 +39,13 @@ export async function POST(req) {
     // email -> from Google/Clerk or input
     // display_name -> user full name
     // password_hash -> 'google' if Google login
-    // reputation -> 3 by default
+    // reputation -> 50 by default (neutral baseline)
     const result = await saveOrUpdateUser({
       email,
       displayName: display_name || displayName,
       isGoogleAuth: Boolean(is_google),
       password: is_google ? "google" : undefined,
-      reputation: 3, // default reputation value 3
+      reputation: 50, // default baseline reputation
     });
 
     return NextResponse.json({

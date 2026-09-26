@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { UserButton, SignInButton, Show, useUser } from "@clerk/nextjs";
-import { Bell, Search, ShieldAlert } from "lucide-react";
+import { Bell, Search, ShieldAlert, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Header = () => {
@@ -67,7 +67,7 @@ const Header = () => {
                 </div>
 
                 {/* Center Section: Minimal Search Box */}
-                <div className="flex-1 max-w-md mx-2 sm:mx-6">
+                <div className="hidden sm:flex flex-1 max-w-md mx-2 sm:mx-6">
                     <div className="relative w-full">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                         <input
@@ -116,7 +116,22 @@ const Header = () => {
                                         userButtonAvatarBox: "w-8 h-8 rounded-full ring-1 ring-white/20",
                                     },
                                 }}
-                            />
+                            >
+                                <UserButton.MenuItems>
+                                    <UserButton.Link
+                                        label="Citizen Profile"
+                                        labelIcon={<User className="w-4 h-4 text-amber-400" />}
+                                        href="/profile"
+                                    />
+                                    {isAdmin && (
+                                        <UserButton.Link
+                                            label="Admin Command"
+                                            labelIcon={<ShieldAlert className="w-4 h-4 text-amber-400" />}
+                                            href="/admin"
+                                        />
+                                    )}
+                                </UserButton.MenuItems>
+                            </UserButton>
                         </Show>
                         <Show when="signed-out">
                             <SignInButton mode="modal">
