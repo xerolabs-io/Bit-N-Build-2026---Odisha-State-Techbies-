@@ -67,6 +67,17 @@ export async function POST(req) {
       reporter_email,
     } = body;
 
+    // 2. Strict Auth Check: Must be submitted by an authenticated reporter
+    if (!reporter_email || typeof reporter_email !== "string" || !reporter_email.includes("@")) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized: You must be signed in with a valid account to submit an incident report.",
+        },
+        { status: 401 }
+      );
+    }
+
     if (!title?.trim()) {
       return NextResponse.json(
         { success: false, error: "Incident title is required." },

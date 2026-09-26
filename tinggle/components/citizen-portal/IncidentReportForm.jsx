@@ -18,10 +18,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   LocateFixed,
+  Lock,
+  LogIn,
 } from "lucide-react";
 import { useGeoLocation, GEO_STATES } from "@/hooks/useGeoLocation";
 import { Button } from "@/components/ui/button";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignInButton } from "@clerk/nextjs";
 
 const CATEGORIES = [
   { id: "Traffic", label: "TRAFFIC", icon: Car, color: "text-amber-400", activeBg: "bg-amber-500 text-black font-semibold border-amber-400" },
@@ -39,7 +41,7 @@ const GPS_STATES = {
 };
 
 export default function IncidentReportForm({ onSubmit }) {
-  const { user } = useUser();
+  const { user, isSignedIn, isLoaded } = useUser();
 
   // Form state
   const [headline, setHeadline] = useState("");
@@ -88,6 +90,13 @@ export default function IncidentReportForm({ onSubmit }) {
   // ─── Submit to API → Supabase ──────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // 1. Strict Auth Verification
+    if (!isSignedIn || !user) {
+      setSubmitError("Authentication required: You must be signed in to broadcast a citizen report.");
+      return;
+    }
+
     if (!headline.trim()) return;
 
     setIsSubmitting(true);
@@ -95,9 +104,13 @@ export default function IncidentReportForm({ onSubmit }) {
 
     try {
       const apiKey = process.env.NEXT_PUBLIC_API_KEY || "tinggle-api-key-1";
-      const reporterEmail = isAnonymous
-        ? null
-        : user?.primaryEmailAddress?.emailAddress || null;
+      const userEmail =
+        user?.primaryEmailAddress?.emailAddress ||
+        user?.emailAddresses?.[0]?.emailAddress;
+
+      if (!userEmail) {
+        throw new Error("Unable to identify authenticated user email. Please sign in again.");
+      }
 
       const payload = {
         title: headline.trim(),
@@ -109,7 +122,7 @@ export default function IncidentReportForm({ onSubmit }) {
         longitude: coords.lng,
         image_url: imagePreview || null, // base64 preview stored as data URL
         is_anonymous: isAnonymous,
-        reporter_email: reporterEmail,
+        reporter_email: userEmail,
       };
 
       const response = await fetch("/api/incidents", {
@@ -192,11 +205,50 @@ export default function IncidentReportForm({ onSubmit }) {
               Broadcast a Community Incident
             </h2>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-teal-400 font-mono">
-            <ShieldCheck className="w-4 h-4 text-teal-400" />
-            <span>End-to-End Cryptographically Stamped</span>
+
+          <div className="flex items-center gap-2">
+            {isSignedIn ? (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Verified Reporter</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Sign In Required</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Unauthenticated Security Banner */}
+        {!isSignedIn && isLoaded && (
+          <div className="bg-gradient-to-r from-amber-500/15 via-[#161e2e] to-sky-500/15 border border-amber-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-lg animate-in fade-in">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
+                <Lock className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-amber-300 font-heading text-sm">
+                  Sign In Required to File Incident Reports
+                </span>
+                <p className="text-zinc-400 text-xs mt-0.5 leading-relaxed">
+                  Only authenticated citizens can upload incident reports to maintain community trust and eliminate false alarms.
+                </p>
+              </div>
+            </div>
+
+            <SignInButton mode="modal">
+              <button
+                type="button"
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold font-mono text-xs rounded-xl transition-all shrink-0 cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                Sign In with Account
+              </button>
+            </SignInButton>
+          </div>
+        )}
 
         {/* Input Fields & Media Upload */}
         <div className="flex flex-col md:flex-row gap-5 items-stretch">
@@ -358,15 +410,28 @@ export default function IncidentReportForm({ onSubmit }) {
             >
               Clear
             </button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isSubmitting || !headline.trim()}
-              className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
-            >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              {isSubmitting ? "Broadcasting..." : "Submit Incident Report"}
-            </Button>
+            {isSignedIn ? (
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={isSubmitting || !headline.trim()}
+                className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {isSubmitting ? "Broadcasting..." : "Submit Incident Report"}
+              </Button>
+            ) : (
+              <SignInButton mode="modal">
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer"
+                >
+                  <Lock className="w-4 h-4" />
+                  Sign In to Submit Report
+                </Button>
+              </SignInButton>
+            )}
           </div>
         </div>
 
