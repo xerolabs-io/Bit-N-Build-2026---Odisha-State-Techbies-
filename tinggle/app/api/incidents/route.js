@@ -140,3 +140,92 @@ export async function POST(req) {
     );
   }
 }
+
+export async function PATCH(req) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const { id, status, trust_score, confirm_count, dispute_count, admin_notes } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Incident ID is required." },
+        { status: 400 }
+      );
+    }
+
+    const updatePayload = {
+      updated_at: new Date().toISOString(),
+    };
+    if (status !== undefined) updatePayload.status = status;
+    if (trust_score !== undefined) updatePayload.trust_score = trust_score;
+    if (confirm_count !== undefined) updatePayload.confirm_count = confirm_count;
+    if (dispute_count !== undefined) updatePayload.dispute_count = dispute_count;
+    if (admin_notes !== undefined) updatePayload.admin_notes = admin_notes;
+
+    const { data, error } = await supabase
+      .from("incidents")
+      .update(updatePayload)
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("❌ Supabase update error:", error.message);
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Incident successfully updated.",
+      data,
+    });
+  } catch (err) {
+    console.error("❌ /api/incidents PATCH error:", err.message);
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Incident ID is required for deletion." },
+        { status: 400 }
+      );
+    }
+
+    const { error } = await supabase
+      .from("incidents")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("❌ Supabase delete error:", error.message);
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Incident ${id} deleted successfully.`,
+    });
+  } catch (err) {
+    console.error("❌ /api/incidents DELETE error:", err.message);
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
+  }
+}
+

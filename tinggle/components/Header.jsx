@@ -1,13 +1,54 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { UserButton, SignInButton, Show } from "@clerk/nextjs";
-import { Bell, Search } from "lucide-react";
+import { UserButton, SignInButton, Show, useUser } from "@clerk/nextjs";
+import { Bell, Search, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Header = () => {
+    const { user, isSignedIn, isLoaded } = useUser();
+    const [isAdmin, setIsAdmin] = useState(false);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        async function fetchAdminStatus() {
+            if (!isSignedIn || !user) {
+                if (isMounted) setIsAdmin(false);
+                return;
+            }
+
+            const email =
+                user.primaryEmailAddress?.emailAddress ||
+                user.emailAddresses?.[0]?.emailAddress;
+
+            if (!email) {
+                if (isMounted) setIsAdmin(false);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/auth/me?email=${encodeURIComponent(email)}`);
+                if (res.ok) {
+                    const json = await res.json();
+                    if (isMounted) {
+                        setIsAdmin(Boolean(json?.data?.is_admin));
+                    }
+                } else {
+                    if (isMounted) setIsAdmin(false);
+                }
+            } catch (err) {
+                console.error("Error fetching admin status:", err);
+                if (isMounted) setIsAdmin(false);
+            }
+        }
+
+        if (isLoaded) {
+            fetchAdminStatus();
+        }
+    }, [isLoaded, isSignedIn, user]);
     return (
         <header className="sticky top-0 z-50 w-full border-b border-white/10 px-4 md:px-8 py-3 text-white backdrop-blur-md" style={{ background: "linear-gradient(135deg, #000000 0%, #111111 30%, #1a1a1a 60%, #0d131e 100%)" }}>
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
@@ -40,8 +81,20 @@ const Header = () => {
                     </div>
                 </div>
 
-                {/* Right Section: Notification Icon & Clerk UserButton */}
+                {/* Right Section: Admin Button, Notification Icon & Clerk UserButton */}
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                    {/* Admin Dashboard Button - visible only to verified Admins */}
+                    {isAdmin && (
+                        <Link
+                            href="/admin"
+                            id="header-admin-btn"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-red-500/20 hover:from-amber-500/30 hover:via-orange-500/30 hover:to-red-500/30 text-amber-300 hover:text-amber-100 border border-amber-500/40 text-xs font-bold tracking-wide transition-all shadow-md shadow-amber-950/30 hover:scale-105 active:scale-95 group"
+                        >
+                            <ShieldAlert className="w-3.5 h-3.5 text-amber-400 group-hover:text-amber-300 transition-colors animate-pulse" />
+                            <span>Admin</span>
+                        </Link>
+                    )}
+
                     {/* Notification Button */}
                     <button
                         type="button"

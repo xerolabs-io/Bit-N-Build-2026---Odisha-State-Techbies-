@@ -53,7 +53,7 @@ export async function saveOrUpdateUser({
         ignoreDuplicates: false,
       }
     )
-    .select("id, email, display_name, reputation, created_at, updated_at")
+    .select("*")
     .single();
 
   if (error) {
@@ -62,7 +62,14 @@ export async function saveOrUpdateUser({
   }
 
   console.log("✅ User saved/updated in Supabase:", data.email);
-  return { success: true, source: "database", user: data };
+  return {
+    success: true,
+    source: "database",
+    user: {
+      ...data,
+      is_admin: Boolean(data?.is_admin || data?.admin),
+    },
+  };
 }
 
 /**
@@ -74,7 +81,7 @@ export async function findUserByEmail(email) {
 
   const { data, error } = await supabase
     .from("users")
-    .select("id, email, display_name, reputation, created_at")
+    .select("*")
     .eq("email", normalizedEmail)
     .single();
 
@@ -84,5 +91,8 @@ export async function findUserByEmail(email) {
     return null;
   }
 
-  return data;
+  return {
+    ...data,
+    is_admin: Boolean(data?.is_admin || data?.admin),
+  };
 }

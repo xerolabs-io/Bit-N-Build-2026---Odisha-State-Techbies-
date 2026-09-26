@@ -2,13 +2,48 @@ import { NextResponse } from "next/server";
 import { validateApiKey } from "@/middleware/auth.middleware";
 import { findUserByEmail } from "@/lib/users.lib";
 
-export async function GET() {
-  return NextResponse.json(
-    { success: false, error: "Method Not Allowed. Must be a POST request." },
-    { status: 405 }
-  );
+// ─── GET /api/auth/me?email=... ────────────────────────────────────────────
+export async function GET(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const email = searchParams.get("email");
+
+    if (!email) {
+      return NextResponse.json(
+        { success: false, error: "Email query parameter is required." },
+        { status: 400 }
+      );
+    }
+
+    const user = await findUserByEmail(email);
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "User not found in database." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        display_name: user.display_name,
+        reputation: user.reputation ?? 3,
+        is_admin: Boolean(user.is_admin || user.admin),
+        created_at: user.created_at,
+      },
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
 }
 
+// ─── POST /api/auth/me ─────────────────────────────────────────────────────
 export async function POST(req) {
   try {
     // 1. Mandatory Security: Check API Key first
@@ -45,9 +80,11 @@ export async function POST(req) {
     return NextResponse.json({
       success: true,
       data: {
+        id: user.id,
         email: user.email,
         display_name: user.display_name,
         reputation: user.reputation ?? 3,
+        is_admin: Boolean(user.is_admin || user.admin),
         created_at: user.created_at,
       },
     });

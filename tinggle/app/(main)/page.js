@@ -12,7 +12,7 @@ import {
 } from "@/components/citizen-portal";
 import { useGeoLocation, GEO_STATES } from "@/hooks/useGeoLocation";
 import { useUser } from "@clerk/nextjs";
-import { Loader2, AlertTriangle, MapPin } from "lucide-react";
+import { Loader2, AlertTriangle, MapPin, RefreshCw } from "lucide-react";
 
 // ─── Haversine distance in miles between two lat/lng points ───────────────────
 function haversineDistance(lat1, lng1, lat2, lng2) {

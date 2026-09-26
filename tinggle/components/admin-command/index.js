@@ -6,3 +6,5 @@ export { default as EditorialModerationDesk } from "./EditorialModerationDesk";
 export { default as ActiveThreatSectorMap } from "./ActiveThreatSectorMap";
 export { default as InterAgencyStatusWidget } from "./InterAgencyStatusWidget";
 export { default as BroadcastComposerWidget } from "./BroadcastComposerWidget";
+export { default as AdminDashboardClient } from "./AdminDashboardClient";
+
