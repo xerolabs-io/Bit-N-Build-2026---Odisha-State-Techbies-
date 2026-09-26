@@ -534,7 +534,7 @@ export default function IncidentDetailView({ initialIncident }) {
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                     unoptimized
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute inset-0 bg-linear-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
                   <div className="absolute bottom-3 right-3 bg-black/80 hover:bg-black px-3 py-1.5 rounded-lg text-xs font-mono text-zinc-200 flex items-center gap-1.5 border border-white/20">
                     <ExternalLink className="w-3.5 h-3.5" /> Full Zoom
                   </div>
@@ -664,7 +664,7 @@ export default function IncidentDetailView({ initialIncident }) {
             <div className="space-y-1.5">
               <div className="w-full h-3 rounded-full bg-[#0a0f19] border border-white/10 overflow-hidden p-0.5">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-amber-500 via-sky-400 to-teal-400 transition-all duration-700"
+                  className="h-full rounded-full bg-linear-to-r from-amber-500 via-sky-400 to-teal-400 transition-all duration-700"
                   style={{ width: `${credibility.score}%` }}
                 />
               </div>
@@ -903,7 +903,7 @@ export default function IncidentDetailView({ initialIncident }) {
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                       unoptimized
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="absolute bottom-2 right-2 bg-black/85 backdrop-blur-md px-2.5 py-1 rounded-md text-xs font-mono text-zinc-200 flex items-center gap-1.5 border border-white/20 shadow-md">
                       <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
                       <span>View Photo</span>
@@ -985,66 +985,64 @@ export default function IncidentDetailView({ initialIncident }) {
       )}
     </div>
   </section>
-      </main >
+</main>
 
-    {/* ── Universal Image Zoom Lightbox Modal ────────────────────────────── */ }
-  {
-    modalImage && (
+  {/* ── Universal Image Zoom Lightbox Modal ────────────────────────────── */}
+  {modalImage && (
+    <div
+      onClick={() => setModalImage(null)}
+      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-6 cursor-pointer"
+    >
       <div
-        onClick={() => setModalImage(null)}
-        className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-6 cursor-pointer"
+        onClick={(e) => e.stopPropagation()}
+        className="relative max-w-4xl w-full max-h-[90vh] flex flex-col bg-[#0b101d] border border-white/20 rounded-2xl overflow-hidden shadow-2xl cursor-default"
       >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="relative max-w-4xl w-full max-h-[90vh] flex flex-col bg-[#0b101d] border border-white/20 rounded-2xl overflow-hidden shadow-2xl cursor-default"
-        >
-          {/* Lightbox Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-[#111827] border-b border-white/10 shrink-0">
-            <div className="min-w-0 pr-4">
-              <h4 className="text-sm md:text-base font-bold text-white truncate font-heading">
-                {modalImage.title || "Visual Evidence"}
-              </h4>
-              {modalImage.subtitle && (
-                <p className="text-xs text-zinc-400 font-mono truncate">
-                  {modalImage.subtitle}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <a
-                href={modalImage.src}
-                target="_blank"
-                rel="noreferrer"
-                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-200 transition-colors"
-                title="Open original in new tab"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-              <button
-                type="button"
-                onClick={() => setModalImage(null)}
-                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-200 transition-colors cursor-pointer"
-                title="Close preview"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+        {/* Lightbox Header */}
+        <div className="flex items-center justify-between px-4 py-3 bg-[#111827] border-b border-white/10 shrink-0">
+          <div className="min-w-0 pr-4">
+            <h4 className="text-sm md:text-base font-bold text-white truncate font-heading">
+              {modalImage.title || "Visual Evidence"}
+            </h4>
+            {modalImage.subtitle && (
+              <p className="text-xs text-zinc-400 font-mono truncate">
+                {modalImage.subtitle}
+              </p>
+            )}
           </div>
-
-          {/* Lightbox Viewport */}
-          <div className="relative w-full h-[60vh] md:h-[72vh] bg-black/95 flex items-center justify-center">
-            <Image
-              src={modalImage.src}
-              alt={modalImage.alt || "Visual Evidence"}
-              fill
-              className="object-contain"
-              unoptimized
-            />
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={modalImage.src}
+              target="_blank"
+              rel="noreferrer"
+              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-200 transition-colors"
+              title="Open original in new tab"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+            <button
+              type="button"
+              onClick={() => setModalImage(null)}
+              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-200 transition-colors cursor-pointer"
+              title="Close preview"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
+
+        {/* Lightbox Viewport */}
+        <div className="relative w-full h-[60vh] md:h-[72vh] bg-black/95 flex items-center justify-center">
+          <Image
+            src={modalImage.src}
+            alt={modalImage.alt || "Visual Evidence"}
+            fill
+            className="object-contain"
+            unoptimized
+          />
+        </div>
       </div>
-    )
-  }
-    </div >
+    </div>
+  )}
+</div>
   );
 }

@@ -589,24 +589,24 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
       )}
 
       {/* ─── Main Cockpit Grid ───────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3.5 p-3.5 overflow-hidden">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3.5 p-3 md:p-3.5 overflow-y-auto lg:overflow-hidden">
         {/* ── LEFT & CENTER: Primary Incident Cockpit (8 of 12 cols) ──────── */}
-        <div className="lg:col-span-8 flex flex-col min-h-0 h-full overflow-hidden">
+        <div className="lg:col-span-8 flex flex-col min-h-[500px] lg:min-h-0 h-full overflow-hidden">
           {currentIncident ? (
             <Card className="flex flex-col h-full bg-[#111828]/95 border-white/10 shadow-2xl overflow-hidden rounded-xl">
               {/* Header: Title, Description, and Badges */}
-              <CardHeader className="shrink-0 p-4 pb-3 border-b border-white/10 bg-[#162035]/80 space-y-2.5">
+              <CardHeader className="shrink-0 p-3 md:p-3.5 pb-2.5 border-b border-white/10 bg-[#162035]/90 space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    {/* Priority #1 SOS Badge */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Priority #1 SOS Badge or Category */}
                     {isCurrentSos ? (
-                      <Badge className="font-mono text-xs md:text-sm font-black uppercase px-3 py-1 bg-red-600 text-white border-2 border-red-400 animate-pulse shadow-md shadow-red-600/50 flex items-center gap-1.5">
+                      <Badge className="font-mono text-xs font-black uppercase px-2.5 py-0.5 bg-red-600 text-white border border-red-400 animate-pulse shadow-md shadow-red-600/50 flex items-center gap-1.5">
                         <AlertOctagon className="w-3.5 h-3.5" />
-                        <span>PRIORITY #1 EMERGENCY SOS</span>
+                        <span>PRIORITY #1 SOS</span>
                       </Badge>
                     ) : (
                       <Badge
-                        className={`font-mono text-xs md:text-sm font-bold uppercase px-3 py-1 border ${
+                        className={`font-mono text-xs font-bold uppercase px-2.5 py-0.5 border ${
                           CATEGORY_COLORS[currentIncident.category] ||
                           "bg-amber-500/20 text-amber-300 border-amber-500/40"
                         }`}
@@ -617,46 +617,41 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
 
                     <Badge
                       variant="outline"
-                      className="font-mono text-xs md:text-sm font-bold text-zinc-100 border-white/20 bg-white/5 px-2.5 py-1"
+                      className="font-mono text-xs font-bold text-zinc-100 border-white/20 bg-white/5 px-2 py-0.5"
                     >
                       #{currentIncident.id}
                     </Badge>
 
-                    <span className="font-mono text-xs md:text-sm text-zinc-300 flex items-center gap-1 font-medium">
+                    <span className="font-mono text-xs text-zinc-300 flex items-center gap-1 font-medium">
                       <Clock className="w-3.5 h-3.5 text-zinc-400" />
                       {formatElapsed(currentIncident.created_at)}
                     </span>
 
                     {/* Upvote Count Badge */}
-                    <Badge
-                      variant="outline"
-                      className="font-mono text-xs md:text-sm font-bold text-emerald-300 border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 flex items-center gap-1.5 shadow-sm"
+                    <span
+                      className="font-mono text-xs font-bold text-emerald-300 border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm"
                       title="Citizen Upvotes / Corroborations"
                     >
-                      <ArrowBigUp className="w-4 h-4 text-emerald-400 fill-emerald-400/30" />
+                      <ArrowBigUp className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400/30" />
                       <span>{currentUpvotes} Upvote{currentUpvotes === 1 ? "" : "s"}</span>
-                    </Badge>
+                    </span>
 
                     {/* Flag as Fake Count Badge */}
-                    <Badge
-                      variant="outline"
-                      className={`font-mono text-xs md:text-sm font-bold px-2.5 py-1 flex items-center gap-1.5 transition-all ${
+                    <span
+                      className={`font-mono text-xs font-bold px-2 py-0.5 rounded-md flex items-center gap-1 transition-all ${
                         currentDisputes > 0
-                          ? "bg-rose-500/20 text-rose-300 border-rose-500/60 shadow-md shadow-rose-950/60 animate-pulse font-extrabold"
-                          : "bg-white/5 text-zinc-400 border-white/10"
+                          ? "bg-rose-500/20 text-rose-300 border border-rose-500/60 shadow-sm animate-pulse font-extrabold"
+                          : "bg-white/5 text-zinc-400 border border-white/10"
                       }`}
                       title="Citizens who flagged this post as fake / hoax"
                     >
-                      <Flag className="w-3.5 h-3.5 text-rose-400" />
+                      <Flag className="w-3 h-3 text-rose-400" />
                       <span>{currentDisputes} Flagged Fake</span>
-                    </Badge>
+                    </span>
 
                     {currentIncident.reporter_email && (
-                      <span className="hidden md:inline font-mono text-xs md:text-sm text-zinc-400">
-                        • Caller:{" "}
-                        <strong className="text-zinc-200">
-                          {currentIncident.reporter_email}
-                        </strong>
+                      <span className="hidden xl:inline font-mono text-xs text-zinc-400">
+                        • Caller: <strong className="text-zinc-200">{currentIncident.reporter_email}</strong>
                       </span>
                     )}
                   </div>
@@ -665,53 +660,52 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                   {currentIncident.status &&
                     (currentIncident.status.includes("EN ROUTE") ||
                       currentIncident.status.includes("DISPATCHED")) && (
-                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-mono text-xs md:text-sm font-bold animate-pulse">
-                        <Ambulance className="w-4 h-4 text-emerald-400" />
-                        <span>HELP IS EN ROUTE ({currentIncident.trust_score || "SQUAD DISPATCHED"})</span>
+                      <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-mono text-xs font-bold animate-pulse">
+                        <Ambulance className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>HELP EN ROUTE</span>
                       </span>
                     )}
 
                   {currentIncident.status === "RESOLVED" && (
-                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-500/50 text-teal-300 font-mono text-xs md:text-sm font-bold">
-                      <CheckCircle2 className="w-4 h-4 text-teal-400" />
-                      <span>RESOLVED BY CALLER · CITIZEN SAFE</span>
+                    <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-500/20 border border-teal-500/50 text-teal-300 font-mono text-xs font-bold">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
+                      <span>RESOLVED</span>
                     </span>
                   )}
                 </div>
 
-                {/* Caller Phone Dial Banner (Prominent for SOS) */}
+                {/* Caller Phone Dial Banner (Compact & High Priority for SOS) */}
                 {isCurrentSos && (
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-red-950/90 via-[#181122] to-emerald-950/50 border-2 border-red-500/60 shadow-xl gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-red-600/30 border border-red-500/60 text-red-300 shrink-0">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-2xl bg-red-500 opacity-40"></span>
-                        <PhoneCall className="w-5 h-5 text-red-400" />
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-2.5 rounded-xl bg-linear-to-r from-red-950/90 via-[#181122] to-emerald-950/50 border border-red-500/60 shadow-lg gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-red-600/30 border border-red-500/60 text-red-300 shrink-0">
+                        <PhoneCall className="w-4 h-4 text-red-400 animate-pulse" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[11px] font-black uppercase tracking-wider text-red-400">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[10px] font-black uppercase tracking-wider text-red-400">
                             SOS CALLER DIRECT LINE:
                           </span>
-                          <span className="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded font-mono font-bold border border-red-500/30">
-                            VERIFIED
+                          <span className="text-[9px] bg-red-500/20 text-red-300 px-1.5 py-0.2 rounded font-mono font-bold border border-red-500/30">
+                            LIVE BEACON
                           </span>
                         </div>
-                        <div className="font-mono text-base md:text-lg font-black text-white tracking-widest flex items-center gap-2 mt-0.5">
-                          <span>{callerPhone || "Phone attached in carrier signal"}</span>
+                        <div className="font-mono text-sm md:text-base font-black text-white tracking-wider">
+                          {callerPhone || "Phone transmitted with beacon"}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <div className="flex items-center gap-2">
                       {callerPhone ? (
                         <>
                           <a
                             href={`tel:${callerPhone}`}
-                            className="flex-1 sm:flex-initial px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-mono text-xs font-black rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-950 cursor-pointer active:scale-95 border border-emerald-400/30"
+                            className="px-3 py-1.5 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-mono text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 border border-emerald-400/30 cursor-pointer"
                             title="Direct call via mobile carrier"
                           >
-                            <PhoneCall className="w-4 h-4 animate-bounce" />
-                            <span>DIRECT CALL ({callerPhone})</span>
+                            <PhoneCall className="w-3.5 h-3.5" />
+                            <span>DIRECT CALL</span>
                           </a>
 
                           <a
@@ -720,7 +714,7 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                             )}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-3.5 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                            className="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono text-xs font-bold rounded-lg flex items-center justify-center gap-1 transition-colors"
                             title="Open WhatsApp chat with caller"
                           >
                             <span>WhatsApp</span>
@@ -729,90 +723,77 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                       ) : (
                         <a
                           href="tel:112"
-                          className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-mono text-xs font-bold rounded-xl flex items-center gap-1.5"
+                          className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-mono text-xs font-bold rounded-lg flex items-center gap-1"
                         >
                           <PhoneCall className="w-3.5 h-3.5" />
-                          <span>DIAL 112 DISPATCH</span>
+                          <span>DIAL 112</span>
                         </a>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Prominent Title */}
-                <CardTitle className="text-xl md:text-2xl font-bold font-heading text-white leading-tight">
-                  {currentIncident.title}
-                </CardTitle>
+                {/* Title & Description */}
+                <div>
+                  <CardTitle className="text-lg md:text-xl font-bold font-heading text-white leading-tight">
+                    {currentIncident.title}
+                  </CardTitle>
+                  <CardDescription className="text-xs md:text-sm text-zinc-300 line-clamp-2 leading-relaxed mt-0.5">
+                    {currentIncident.description ||
+                      "Citizen emergency report filed through Tinggle Emergency Network."}
+                  </CardDescription>
+                </div>
 
-                {/* Description */}
-                <CardDescription className="text-sm md:text-base text-zinc-200 line-clamp-2 md:line-clamp-3 leading-relaxed">
-                  {currentIncident.description ||
-                    "Citizen emergency report filed through Tinggle Emergency Network."}
-                </CardDescription>
-
-                {/* Location & Coordinates strip with Upvotes & Flagged as Fake summary */}
-                <div className="flex items-center justify-between text-xs md:text-sm text-zinc-200 bg-[#0c1220] border border-white/10 px-3.5 py-2 rounded-lg flex-wrap gap-2">
+                {/* Location & Coordinates strip */}
+                <div className="flex items-center justify-between text-xs text-zinc-200 bg-[#0c1220] border border-white/10 px-3 py-1.5 rounded-lg flex-wrap gap-2">
                   <div className="flex items-center gap-2 truncate">
-                    <MapPin className="w-4 h-4 text-sky-400 shrink-0" />
-                    <span className="truncate font-semibold text-zinc-100 text-xs md:text-sm">
+                    <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span className="truncate font-semibold text-zinc-100">
                       {currentIncident.location_text || "Sector Perimeter"}
                     </span>
                     {currentIncident.latitude && (
-                      <span className="font-mono text-xs text-zinc-400 hidden sm:inline font-medium">
-                        ({Number(currentIncident.latitude).toFixed(4)}° N,{" "}
-                        {Number(currentIncident.longitude).toFixed(4)}° E)
+                      <span className="font-mono text-[11px] text-zinc-400 hidden sm:inline">
+                        ({Number(currentIncident.latitude).toFixed(3)}°N,{" "}
+                        {Number(currentIncident.longitude).toFixed(3)}°E)
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 font-mono text-xs md:text-sm">
-                    <span className="text-emerald-400 font-bold flex items-center gap-1" title="Community Upvotes">
-                      <ArrowBigUp className="w-4 h-4 text-emerald-400 fill-emerald-400/20" />
-                      {currentUpvotes} Upvote{currentUpvotes === 1 ? "" : "s"}
-                    </span>
-                    <span className="text-zinc-600">|</span>
-                    <span
-                      className={`font-bold flex items-center gap-1 ${
-                        currentDisputes > 0 ? "text-rose-400 font-extrabold" : "text-zinc-400"
-                      }`}
-                      title="Citizens Flagged as Fake"
-                    >
-                      <Flag className="w-3.5 h-3.5 text-rose-400" />
-                      {currentDisputes} Flagged as Fake
-                    </span>
+                  <div className="flex items-center gap-2 font-mono text-xs">
                     {currentIncident.trust_score && (
-                      <>
-                        <span className="text-zinc-600 hidden md:inline">|</span>
-                        <span className="text-teal-400 font-bold hidden md:inline">
-                          Trust: {currentIncident.trust_score}
-                        </span>
-                      </>
+                      <span className="text-teal-400 font-semibold">
+                        Trust: {currentIncident.trust_score}
+                      </span>
                     )}
+                    <span className="text-zinc-500 hidden sm:inline">•</span>
+                    <span className="text-zinc-400 hidden sm:inline">
+                      Verified Ledger
+                    </span>
                   </div>
                 </div>
 
                 {/* Citizen Disinformation Alert Callout when flagged as fake */}
                 {currentDisputes > 0 && (
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/50 text-rose-200 text-xs md:text-sm animate-in fade-in duration-300">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-rose-950/40 border border-rose-500/50 text-rose-200 text-xs animate-in fade-in duration-300">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-pulse" />
                       <span>
                         <strong className="text-rose-300">Citizen Disinformation Warning:</strong>{" "}
                         {currentDisputes} citizen{currentDisputes === 1 ? "" : "s"} flagged this report as fake news / hoax.
                       </span>
                     </div>
-                    <span className="font-mono text-xs font-bold text-rose-300 shrink-0 hidden sm:inline">
-                      {currentUpvotes} Upvote(s) vs {currentDisputes} Fake Flag(s)
+                    <span className="font-mono text-[11px] font-bold text-rose-300 shrink-0 hidden sm:inline">
+                      {currentUpvotes}▲ vs {currentDisputes}🚩
                     </span>
                   </div>
                 )}
               </CardHeader>
 
-              {/* Content: Side-by-Side Image and Map */}
-              <CardContent className="flex-1 min-h-0 p-3.5 grid grid-cols-1 md:grid-cols-2 gap-3.5 overflow-hidden">
+              {/* Content: Side-by-Side Image and Map (Flexible & Resilient) */}
+              <CardContent className="flex-1 min-h-0 p-3 md:p-3.5 grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto lg:overflow-hidden">
                 {/* 1. Evidence Image View */}
-                <div className="flex flex-col h-full min-h-[190px] rounded-xl overflow-hidden border border-white/10 bg-[#080d17] relative group">
+                <div className="flex flex-col h-full min-h-[160px] md:min-h-0 rounded-xl overflow-hidden border border-white/10 bg-[#080d17] relative group">
                   {currentIncident.image_url ? (
-                    <div className="relative w-full h-full">
+                    <div className="relative w-full h-full min-h-[160px]">
                       <Image
                         src={currentIncident.image_url}
                         alt={currentIncident.title}
@@ -821,26 +802,26 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                         sizes="(max-width: 768px) 100vw, 50vw"
                         unoptimized
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
-                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-black/85 backdrop-blur-md px-3 py-1 rounded-md text-xs font-mono text-teal-300 border border-teal-500/40 font-semibold">
+                      <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-black/85 backdrop-blur-md px-2.5 py-0.5 rounded-md text-xs font-mono text-teal-300 border border-teal-500/40 font-semibold">
                         <span className="w-2 h-2 rounded-full bg-teal-400 shadow-[0_0_4px_#2dd4bf]" />
                         CITIZEN EVIDENCE PHOTO
                       </div>
                       <button
                         onClick={() => setImageModal(currentIncident.image_url)}
-                        className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 bg-black/85 hover:bg-black px-2.5 py-1.5 rounded-lg text-xs font-mono text-zinc-200 hover:text-white border border-white/15 transition-colors cursor-pointer"
+                        className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 bg-black/85 hover:bg-black px-2 py-1 rounded-lg text-xs font-mono text-zinc-200 hover:text-white border border-white/15 transition-colors cursor-pointer"
                       >
-                        <ExternalLink className="w-3.5 h-3.5" /> Full View
+                        <ExternalLink className="w-3 h-3" /> Full View
                       </button>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-full p-4 text-center gap-2.5">
+                    <div className="flex flex-col items-center justify-center h-full p-4 text-center gap-2">
                       {isCurrentSos ? (
-                        <AlertOctagon className="w-10 h-10 text-red-500 animate-pulse" />
+                        <AlertOctagon className="w-8 h-8 text-red-500 animate-pulse" />
                       ) : (
-                        <Flame className="w-9 h-9 text-amber-400/80" />
+                        <Flame className="w-8 h-8 text-amber-400/80" />
                       )}
-                      <span className="font-mono text-xs md:text-sm text-zinc-200 font-bold uppercase">
+                      <span className="font-mono text-xs text-zinc-200 font-bold uppercase">
                         {isCurrentSos ? "DIRECT SOS SATELLITE BEACON" : "NO PHOTO ATTACHED"}
                       </span>
                       <p className="text-xs text-zinc-400 max-w-xs">
@@ -848,7 +829,7 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                           ? "Caller triggered instant emergency beacon. Direct GPS and carrier tower telemetry locked."
                           : "Incident geo-located from reporter GPS coordinates."}
                       </p>
-                      <span className="mt-1 font-mono text-xs text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2.5 py-0.5 rounded font-semibold">
+                      <span className="mt-0.5 font-mono text-[11px] text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded font-semibold">
                         GPS LOCK ACTIVE
                       </span>
                     </div>
@@ -856,40 +837,32 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                 </div>
 
                 {/* 2. Interactive Map View */}
-                <div className="flex flex-col h-full min-h-[190px] rounded-xl overflow-hidden border border-white/10 bg-[#080d17] relative">
+                <div className="flex flex-col h-full min-h-[160px] md:min-h-0 rounded-xl overflow-hidden border border-white/10 bg-[#080d17] relative">
                   <ActiveThreatSectorMap
                     incidents={incidents}
                     selectedIncident={currentIncident}
                     compact={true}
-                    className="w-full h-full"
+                    className="w-full h-full min-h-[160px]"
                   />
                 </div>
               </CardContent>
 
-              {/* Footer: Dispatch Help Action */}
-              <CardFooter className="shrink-0 p-3.5 border-t border-white/10 bg-[#162035]/80 flex flex-wrap items-center justify-between gap-3">
+              {/* Footer: Dispatch Help Action (Always Pinned & Accessible) */}
+              <CardFooter className="shrink-0 p-2.5 md:p-3 border-t border-white/10 bg-[#162035]/95 flex flex-wrap items-center justify-between gap-2.5 z-10">
                 {/* Left: Squad Selection */}
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <div className="flex items-center gap-2 bg-[#0b101c] border border-white/15 rounded-lg p-1.5 shadow-sm">
-                    <Siren className="w-4 h-4 text-amber-400 ml-1 shrink-0" />
-                    <span className="text-xs font-mono text-zinc-400 font-semibold pl-1 hidden sm:inline">DISPATCH SQUAD:</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 bg-[#0b101d] border border-white/15 rounded-lg px-2.5 py-1.5 shadow-sm">
+                    <Siren className="w-4 h-4 text-amber-400 ml-0.5 shrink-0" />
+                    <span className="text-xs font-mono text-zinc-400 font-semibold hidden sm:inline">SQUAD:</span>
                     <select
                       value={selectedUnitType}
                       onChange={(e) => setSelectedUnitType(e.target.value)}
-                      className="bg-transparent text-zinc-100 text-xs md:text-sm font-mono font-semibold focus:outline-none pr-2 cursor-pointer"
+                      className="bg-transparent text-zinc-100 text-xs font-mono font-semibold focus:outline-none pr-1 cursor-pointer"
                     >
-                      <option className="bg-[#111828] text-white">
-                        🚒 Fire &amp; HazMat Squad
-                      </option>
-                      <option className="bg-[#111828] text-white">
-                        🚓 Police Tactical Unit
-                      </option>
-                      <option className="bg-[#111828] text-white">
-                        🚑 EMS Ambulance Triage
-                      </option>
-                      <option className="bg-[#111828] text-white">
-                        🚨 Rapid Inter-Agency Taskforce
-                      </option>
+                      <option className="bg-[#111828] text-white">🚒 Fire &amp; HazMat Squad</option>
+                      <option className="bg-[#111828] text-white">🚓 Police Tactical Unit</option>
+                      <option className="bg-[#111828] text-white">🚑 EMS Ambulance Triage</option>
+                      <option className="bg-[#111828] text-white">🚨 Rapid Taskforce</option>
                     </select>
                   </div>
                 </div>
@@ -902,7 +875,7 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                       {isCurrentSos && callerPhone && (
                         <a
                           href={`tel:${callerPhone}`}
-                          className="h-10 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-1.5 font-mono text-xs font-bold shadow-md transition-all active:scale-95 border border-emerald-400/40 cursor-pointer"
+                          className="h-9 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-1.5 font-mono text-xs font-bold shadow-md transition-all active:scale-95 border border-emerald-400/40 cursor-pointer"
                           title="Call the SOS caller directly"
                         >
                           <PhoneCall className="w-3.5 h-3.5 animate-pulse" />
@@ -913,29 +886,27 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                       <Button
                         onClick={() => handleFlagFake("FLAGGED AS FAKE BY HQ")}
                         disabled={actionLoading}
-                        className="h-10 px-3.5 bg-red-600/20 hover:bg-red-600 hover:text-white text-red-300 border border-red-500/40 font-mono text-xs md:text-sm font-bold tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:opacity-50 transition-colors"
+                        className="h-9 px-3 bg-red-600/20 hover:bg-red-600 hover:text-white text-red-300 border border-red-500/40 font-mono text-xs font-bold tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:opacity-50 transition-colors"
                         title="Mark report as fake news / hoax and archive"
                       >
-                        <ShieldAlert className="w-4 h-4 text-red-400" />
+                        <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
                         <span>Flag as Fake</span>
                       </Button>
 
                       {/* Send Help Button: Disabled after help is sent */}
                       {isHelpAlreadyDispatched ? (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            disabled={true}
-                            className="h-10 px-5 font-mono text-xs md:text-sm font-black tracking-wider flex items-center gap-2 bg-emerald-600/25 text-emerald-300 border-2 border-emerald-500/60 cursor-not-allowed opacity-90 shadow-sm"
-                          >
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                            <span>HELP ALREADY SENT · EN ROUTE</span>
-                          </Button>
-                        </div>
+                        <Button
+                          disabled={true}
+                          className="h-9 px-4 font-mono text-xs font-black tracking-wider flex items-center gap-2 bg-emerald-600/25 text-emerald-300 border-2 border-emerald-500/60 cursor-not-allowed opacity-90 shadow-sm"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          <span>HELP EN ROUTE</span>
+                        </Button>
                       ) : (
                         <Button
                           onClick={handleDispatchHelp}
                           disabled={actionLoading}
-                          className={`h-10 px-5 font-mono text-xs md:text-sm font-black tracking-wider flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer disabled:opacity-50 ${
+                          className={`h-9 px-4 font-mono text-xs font-black tracking-wider flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer disabled:opacity-50 ${
                             isCurrentSos
                               ? "bg-red-600 hover:bg-red-500 text-white shadow-red-600/50 animate-pulse"
                               : "bg-teal-500 hover:bg-teal-400 text-black"
@@ -943,17 +914,13 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                         >
                           {actionLoading ? (
                             <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Dispatching &amp; Syncing DB...</span>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Dispatching...</span>
                             </>
                           ) : (
                             <>
-                              <Send className="w-4 h-4" />
-                              <span>
-                                {isCurrentSos
-                                  ? "SEND HELP (NOTIFY CALLER & CITIZENS)"
-                                  : "Dispatch Help"}
-                              </span>
+                              <Send className="w-3.5 h-3.5" />
+                              <span>{isCurrentSos ? "SEND HELP" : "Dispatch Help"}</span>
                             </>
                           )}
                         </Button>
@@ -963,9 +930,9 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                     <Button
                       onClick={() => handleReopenIncident(currentIncident.id)}
                       disabled={actionLoading}
-                      className="h-10 px-4 bg-amber-500/20 hover:bg-amber-500 hover:text-black text-amber-300 border border-amber-500/40 font-mono text-xs md:text-sm font-bold tracking-wider flex items-center gap-1.5 cursor-pointer"
+                      className="h-9 px-3.5 bg-amber-500/20 hover:bg-amber-500 hover:text-black text-amber-300 border border-amber-500/40 font-mono text-xs font-bold tracking-wider flex items-center gap-1.5 cursor-pointer"
                     >
-                      <RotateCcw className="w-4 h-4" />
+                      <RotateCcw className="w-3.5 h-3.5" />
                       <span>Re-open Incident</span>
                     </Button>
                   )}
