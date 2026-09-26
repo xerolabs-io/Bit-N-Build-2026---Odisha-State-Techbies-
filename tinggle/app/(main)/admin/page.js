@@ -38,7 +38,7 @@ export default async function AdminCommandPage() {
     user?.fullName || dbUser.display_name || email || "Operator";
 
   return (
-    <div className="min-h-screen lg:h-screen lg:max-h-screen lg:overflow-hidden bg-[#0d131e] text-zinc-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
+    <div className="min-h-screen bg-[#0d131e] text-zinc-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
 
       {/* Top Nav Strip */}
       <div className="shrink-0 z-40 w-full bg-[#080e19]/95 border-b border-white/10 px-4 md:px-6 py-2.5 flex items-center justify-between backdrop-blur-xl shadow-lg">

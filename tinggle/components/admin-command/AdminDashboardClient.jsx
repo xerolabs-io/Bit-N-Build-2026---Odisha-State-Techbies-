@@ -438,7 +438,7 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0a0f1d] text-zinc-100">
+    <div className="flex-1 flex flex-col bg-[#0a0f1d] text-zinc-100">
       {/* ─── Top Operational Bar ─────────────────────────────────────────── */}
       <div className="shrink-0 bg-[#0e1526] border-b border-white/10 px-4 md:px-6 py-2.5 flex items-center justify-between gap-3 font-mono text-xs md:text-sm flex-wrap">
         <div className="flex items-center gap-2 md:gap-3 flex-wrap">
@@ -590,11 +590,11 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
       )}
 
       {/* ─── Main Cockpit Grid ───────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3.5 p-3 md:p-3.5 overflow-y-auto lg:overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3.5 p-3 md:p-3.5 min-h-[750px]">
         {/* ── LEFT & CENTER: Primary Incident Cockpit (8 of 12 cols) ──────── */}
-        <div className="lg:col-span-8 flex flex-col min-h-[500px] lg:min-h-0 h-full overflow-hidden">
+        <div className="lg:col-span-8 flex flex-col min-h-[680px]">
           {currentIncident ? (
-            <Card className="flex flex-col h-full bg-[#111828]/95 border-white/10 shadow-2xl overflow-hidden rounded-xl">
+            <Card className="flex flex-col h-full bg-[#111828]/95 border-white/10 shadow-2xl rounded-xl">
               {/* Header: Badges, Title, Quick Location, Status (Pinned top, compact) */}
               <CardHeader className="shrink-0 p-3 md:p-3.5 pb-2.5 border-b border-white/10 bg-[#162035]/95 space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -694,8 +694,8 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
                 </div>
               </CardHeader>
 
-              {/* Scrollable Content: Unblocked, fluid scrolling on all devices */}
-              <CardContent className="flex-1 min-h-0 overflow-y-auto p-3.5 md:p-4 space-y-3.5 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+              {/* Content: Fluid & naturally sized */}
+              <CardContent className="flex-1 p-3.5 md:p-4 space-y-3.5">
                 {/* 1. Caller Phone Dial Banner (High Priority for SOS) */}
                 {isCurrentSos && (
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-3 rounded-xl bg-linear-to-r from-red-950/90 via-[#181122] to-emerald-950/50 border border-red-500/60 shadow-lg gap-2.5">
@@ -1009,8 +1009,8 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
         </div>
 
         {/* ── RIGHT COLUMN: Queue / SOS / Solved Archive (4 of 12 cols) ───── */}
-        <div className="lg:col-span-4 flex flex-col min-h-0 h-full overflow-hidden">
-          <Card className="flex flex-col h-full bg-[#111828]/95 border-white/10 shadow-xl overflow-hidden rounded-xl">
+        <div className="lg:col-span-4 flex flex-col min-h-[600px] lg:max-h-[850px]">
+          <Card className="flex flex-col h-full bg-[#111828]/95 border-white/10 shadow-xl rounded-xl">
             {/* Header */}
             <CardHeader className="shrink-0 p-3.5 border-b border-white/10 bg-[#162035]/80">
               <div className="flex items-center justify-between">
@@ -1032,8 +1032,8 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
               </div>
             </CardHeader>
 
-            {/* Scrollable list inside */}
-            <CardContent className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2.5 scrollbar-none">
+            {/* Scrollable list inside (Normal Scrollbar) */}
+            <CardContent className="flex-1 min-h-[450px] overflow-y-auto p-2.5 space-y-2.5">
               {currentList.length === 0 ? (
                 <div className="p-6 text-center flex flex-col items-center justify-center h-full gap-2 text-zinc-400 text-xs md:text-sm font-mono">
                   <ShieldAlert className="w-8 h-8 text-zinc-500" />
