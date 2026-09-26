@@ -144,7 +144,7 @@ export async function POST(req) {
 export async function PATCH(req) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { id, status, trust_score, confirm_count, dispute_count, admin_notes } = body;
+    const { id, status, trust_score, confirm_count, dispute_count } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -160,7 +160,6 @@ export async function PATCH(req) {
     if (trust_score !== undefined) updatePayload.trust_score = trust_score;
     if (confirm_count !== undefined) updatePayload.confirm_count = confirm_count;
     if (dispute_count !== undefined) updatePayload.dispute_count = dispute_count;
-    if (admin_notes !== undefined) updatePayload.admin_notes = admin_notes;
 
     const { data, error } = await supabase
       .from("incidents")

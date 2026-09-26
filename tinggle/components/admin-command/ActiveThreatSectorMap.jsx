@@ -14,19 +14,19 @@ import {
 } from "lucide-react";
 
 const MAP_TILES = {
-  tactical: {
-    name: "Tactical Dark",
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    subdomains: ["a", "b", "c", "d"],
-    maxZoom: 19,
-    attribution: "© CartoDB Dark Matter",
-  },
   satellite: {
     name: "Orbital Satellite",
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     subdomains: ["a", "b", "c"],
     maxZoom: 19,
     attribution: "© Esri World Imagery",
+  },
+  street: {
+    name: "Street View",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    subdomains: ["a", "b", "c"],
+    maxZoom: 19,
+    attribution: "© OpenStreetMap",
   },
 };
 
@@ -45,6 +45,8 @@ export default function ActiveThreatSectorMap({
   incidents = [],
   selectedIncident = null,
   onSelectIncident = null,
+  compact = false,
+  className = "",
 }) {
   const containerRef = useRef(null);
   const mapInstance = useRef(null);
@@ -52,7 +54,7 @@ export default function ActiveThreatSectorMap({
   const markerGroupRef = useRef(null);
   const activeMarkerRef = useRef(null);
 
-  const [mapStyle, setMapStyle] = useState("tactical");
+  const [mapStyle, setMapStyle] = useState("satellite");
   const [mapReady, setMapReady] = useState(false);
   const [error, setError] = useState(null);
 
@@ -168,25 +170,16 @@ export default function ActiveThreatSectorMap({
         const isSelected = selectedIncident?.id === inc.id;
 
         const pinHtml = `
-          <div style="position:relative;width:${isSelected ? "32px" : "24px"};height:${isSelected ? "32px" : "24px"};display:flex;align-items:center;justify-content:center;cursor:pointer;">
-            <div style="position:absolute;width:100%;height:100%;border-radius:50%;background:${color}44;animation:pulse 1.8s infinite;"></div>
-            ${
-              isSelected
-                ? `<div style="position:absolute;width:140%;height:140%;border-radius:50%;border:2px dashed #f59e0b;animation:spin 6s linear infinite;"></div>`
-                : ""
-            }
-            <div style="width:${isSelected ? "14px" : "10px"};height:${isSelected ? "14px" : "10px"};background:${isSelected ? "#ffffff" : color};border:2px solid ${color};border-radius:50%;box-shadow:0 0 12px ${color};z-index:2;position:relative;"></div>
-          </div>
-          <style>
-            @keyframes pulse{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.2);opacity:0}}
-            @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-          </style>`;
+          <div style="position:relative;width:${isSelected ? "30px" : "22px"};height:${isSelected ? "30px" : "22px"};display:flex;align-items:center;justify-content:center;cursor:pointer;">
+            <div style="position:absolute;width:100%;height:100%;border-radius:50%;background:${color}30;border:1.5px solid ${isSelected ? "#f59e0b" : color};"></div>
+            <div style="width:${isSelected ? "12px" : "9px"};height:${isSelected ? "12px" : "9px"};background:${isSelected ? "#ffffff" : color};border:2px solid ${color};border-radius:50%;box-shadow:0 0 8px ${color};z-index:2;position:relative;"></div>
+          </div>`;
 
         const pinIcon = L.divIcon({
           className: "",
           html: pinHtml,
-          iconSize: isSelected ? [32, 32] : [24, 24],
-          iconAnchor: isSelected ? [16, 16] : [12, 12],
+          iconSize: isSelected ? [30, 30] : [22, 22],
+          iconAnchor: isSelected ? [15, 15] : [11, 11],
         });
 
         const marker = L.marker([inc.latitude, inc.longitude], {
@@ -222,7 +215,7 @@ export default function ActiveThreatSectorMap({
     })();
   }, [mapReady, geoIncidents, selectedIncident, onSelectIncident]);
 
-  // ─── 4. Fly to selected incident ──────────────────────────────────────────
+  // ─── 4. Center directly on selected incident (No zoom-in/out flight animation) ──
   useEffect(() => {
     if (
       !mapReady ||
@@ -232,10 +225,10 @@ export default function ActiveThreatSectorMap({
     )
       return;
 
-    mapInstance.current.flyTo(
+    mapInstance.current.setView(
       [selectedIncident.latitude, selectedIncident.longitude],
       14,
-      { animate: true, duration: 1.2 }
+      { animate: false }
     );
   }, [selectedIncident, mapReady]);
 
@@ -265,8 +258,111 @@ export default function ActiveThreatSectorMap({
   const handleZoomIn = () => mapInstance.current?.zoomIn();
   const handleZoomOut = () => mapInstance.current?.zoomOut();
 
+  const mapContent = (
+    <div
+      className={`rounded-xl overflow-hidden relative border border-white/10 bg-[#080d17] ${
+        compact ? className || "w-full h-full min-h-[240px]" : "w-full h-72 md:h-80"
+      }`}
+    >
+      {/* Leaflet canvas container */}
+      <div ref={containerRef} className="w-full h-full z-0" />
+
+      {/* Loading overlay */}
+      {!mapReady && !error && (
+        <div className="absolute inset-0 bg-[#080d17]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-2">
+          <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
+          <span className="font-mono text-xs text-zinc-400">
+            Synchronizing Tactical Sector Telemetry...
+          </span>
+        </div>
+      )}
+
+      {error && (
+        <div className="absolute inset-0 bg-[#080d17]/90 z-10 flex flex-col items-center justify-center gap-2 text-center p-4">
+          <AlertTriangle className="w-6 h-6 text-red-400" />
+          <span className="font-mono text-xs text-red-300">{error}</span>
+        </div>
+      )}
+
+      {/* Tactical Overlay: Active Sector Callout */}
+      <div className="absolute top-3 left-3 z-[400] bg-[#080d17]/90 border border-amber-500/30 backdrop-blur-md px-3.5 py-1.5 rounded-lg text-white font-mono text-xs md:text-sm flex items-center gap-2 shadow-lg pointer-events-none">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 shadow-[0_0_6px_#f59e0b]" />
+        </span>
+        <span className="text-zinc-100 font-bold truncate max-w-[260px]">
+          {selectedIncident
+            ? `SECTOR HOTSPOT: #${selectedIncident.id}`
+            : "METROPOLITAN RADAR"}
+        </span>
+      </div>
+
+      {/* Center reticle */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[400] opacity-35">
+        <Crosshair className="w-9 h-9 text-amber-400" />
+      </div>
+
+      {/* Map Control Buttons */}
+      <div className="absolute top-3 right-3 z-[400] flex flex-col gap-1.5">
+        {/* Tile Switcher (Satellite vs Street) */}
+        <button
+          onClick={() =>
+            setMapStyle((s) => (s === "satellite" ? "street" : "satellite"))
+          }
+          title={`Switch to ${mapStyle === "satellite" ? "Street Map" : "Orbital Satellite"}`}
+          className="p-2 rounded-lg bg-[#080d17]/90 hover:bg-[#1a2333] border border-white/20 text-zinc-200 hover:text-white backdrop-blur-md transition-all shadow-md cursor-pointer"
+        >
+          <Layers className="w-4 h-4 text-amber-400" />
+        </button>
+        {/* Recenter */}
+        <button
+          onClick={handleRecenter}
+          title="Recenter on active incident"
+          className="p-2 rounded-lg bg-[#080d17]/90 hover:bg-[#1a2333] border border-white/20 text-zinc-200 hover:text-white backdrop-blur-md transition-all shadow-md cursor-pointer"
+        >
+          <Navigation2 className="w-4 h-4 text-sky-400" />
+        </button>
+        {/* Zoom In */}
+        <button
+          onClick={handleZoomIn}
+          title="Zoom In"
+          className="p-2 rounded-lg bg-[#080d17]/90 hover:bg-[#1a2333] border border-white/20 text-zinc-200 hover:text-white backdrop-blur-md transition-all shadow-md cursor-pointer"
+        >
+          <ZoomIn className="w-4 h-4" />
+        </button>
+        {/* Zoom Out */}
+        <button
+          onClick={handleZoomOut}
+          title="Zoom Out"
+          className="p-2 rounded-lg bg-[#080d17]/90 hover:bg-[#1a2333] border border-white/20 text-zinc-200 hover:text-white backdrop-blur-md transition-all shadow-md cursor-pointer"
+        >
+          <ZoomOut className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Bottom Strip */}
+      <div className="absolute bottom-2.5 left-2.5 right-2.5 z-[400] bg-[#080d17]/95 border border-white/10 backdrop-blur-md px-3.5 py-2 rounded-lg text-white font-mono text-xs flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-2 truncate">
+          <Compass className="w-4 h-4 text-amber-400 shrink-0" />
+          <span className="text-zinc-200 truncate font-medium text-xs">
+            {selectedIncident?.location_text ||
+              (selectedIncident?.latitude
+                ? `${selectedIncident.latitude.toFixed(4)}° N, ${selectedIncident.longitude.toFixed(4)}° E`
+                : "Active Sectors Synced")}
+          </span>
+        </div>
+        <span className="text-teal-400 font-bold shrink-0 ml-2 text-xs">
+          {mapStyle === "satellite" ? "ORBITAL EARTH" : "STREET MAP"}
+        </span>
+      </div>
+    </div>
+  );
+
+  if (compact) {
+    return mapContent;
+  }
+
   return (
-    <div className="bg-[#141b2a] border border-white/10 p-4 md:p-5 rounded-2xl shadow-lg flex flex-col gap-3 overflow-hidden">
+    <div className={`bg-[#141b2a] border border-white/10 p-4 md:p-5 rounded-2xl shadow-lg flex flex-col gap-3 overflow-hidden ${className}`}>
       {/* Map Header */}
       <div className="flex items-center justify-between text-xs font-mono text-zinc-300">
         <span className="flex items-center gap-2 uppercase tracking-wider font-semibold text-zinc-200">
@@ -275,106 +371,13 @@ export default function ActiveThreatSectorMap({
         </span>
         <div className="flex items-center gap-3">
           <span className="text-amber-400 font-bold flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full text-[11px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_4px_#f59e0b]" />
             <span>{geoIncidents.length} NODES TRACKED</span>
           </span>
         </div>
       </div>
 
-      {/* Map Container */}
-      <div className="w-full h-72 md:h-80 rounded-xl overflow-hidden relative border border-white/10 bg-[#080d17]">
-        {/* Leaflet canvas container */}
-        <div ref={containerRef} className="w-full h-full z-0" />
-
-        {/* Loading overlay */}
-        {!mapReady && !error && (
-          <div className="absolute inset-0 bg-[#080d17]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-2">
-            <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
-            <span className="font-mono text-xs text-zinc-400">
-              Synchronizing Tactical Sector Telemetry...
-            </span>
-          </div>
-        )}
-
-        {error && (
-          <div className="absolute inset-0 bg-[#080d17]/90 z-10 flex flex-col items-center justify-center gap-2 text-center p-4">
-            <AlertTriangle className="w-6 h-6 text-red-400" />
-            <span className="font-mono text-xs text-red-300">{error}</span>
-          </div>
-        )}
-
-        {/* Tactical Overlay: Active Sector Callout */}
-        <div className="absolute top-3 left-3 z-[400] bg-[#080d17]/90 border border-amber-500/30 backdrop-blur-md px-3 py-1.5 rounded-lg text-white font-mono text-xs flex items-center gap-2 shadow-lg pointer-events-none">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-          </span>
-          <span className="text-zinc-200 font-bold">
-            {selectedIncident
-              ? `SECTOR HOTSPOT: ${selectedIncident.id}`
-              : "METROPOLITAN SURVEILLANCE GRID"}
-          </span>
-        </div>
-
-        {/* Tactical Crosshair center reticle */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[400] opacity-40">
-          <Crosshair className="w-10 h-10 text-amber-400" />
-        </div>
-
-        {/* Map Control Buttons */}
-        <div className="absolute top-3 right-3 z-[400] flex flex-col gap-1.5">
-          {/* Tile Switcher */}
-          <button
-            onClick={() =>
-              setMapStyle((s) => (s === "tactical" ? "satellite" : "tactical"))
-            }
-            title={`Switch to ${mapStyle === "tactical" ? "Orbital Satellite" : "Tactical Dark"}`}
-            className="p-2 rounded-lg bg-[#080d17]/90 hover:bg-[#1a2333] border border-white/20 text-zinc-300 hover:text-white backdrop-blur-md transition-all shadow-md cursor-pointer"
-          >
-            <Layers className="w-4 h-4 text-amber-400" />
-          </button>
-          {/* Recenter */}
-          <button
-            onClick={handleRecenter}
-            title="Recenter on active incident"
-            className="p-2 rounded-lg bg-[#080d17]/90 hover:bg-[#1a2333] border border-white/20 text-zinc-300 hover:text-white backdrop-blur-md transition-all shadow-md cursor-pointer"
-          >
-            <Navigation2 className="w-4 h-4 text-sky-400" />
-          </button>
-          {/* Zoom In */}
-          <button
-            onClick={handleZoomIn}
-            title="Zoom In"
-            className="p-2 rounded-lg bg-[#080d17]/90 hover:bg-[#1a2333] border border-white/20 text-zinc-300 hover:text-white backdrop-blur-md transition-all shadow-md cursor-pointer"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
-          {/* Zoom Out */}
-          <button
-            onClick={handleZoomOut}
-            title="Zoom Out"
-            className="p-2 rounded-lg bg-[#080d17]/90 hover:bg-[#1a2333] border border-white/20 text-zinc-300 hover:text-white backdrop-blur-md transition-all shadow-md cursor-pointer"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Bottom Strip */}
-        <div className="absolute bottom-2.5 left-2.5 right-2.5 z-[400] bg-[#080d17]/90 border border-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg text-white font-mono text-[11px] flex items-center justify-between shadow-lg">
-          <div className="flex items-center gap-2 truncate">
-            <Compass className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="text-zinc-300 truncate">
-              {selectedIncident?.location_text ||
-                (selectedIncident?.latitude
-                  ? `${selectedIncident.latitude.toFixed(4)}° N, ${selectedIncident.longitude.toFixed(4)}° E`
-                  : "All Active Sectors Synced")}
-            </span>
-          </div>
-          <span className="text-teal-400 font-bold shrink-0 ml-2">
-            FEED: {mapStyle === "tactical" ? "VECTOR TACTICAL" : "ORBITAL ESRI"}
-          </span>
-        </div>
-      </div>
+      {mapContent}
     </div>
   );
 }

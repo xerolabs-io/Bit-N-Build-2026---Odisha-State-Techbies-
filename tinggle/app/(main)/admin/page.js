@@ -38,19 +38,15 @@ export default async function AdminCommandPage() {
     user?.fullName || dbUser.display_name || email || "Operator";
 
   return (
-    <div className="min-h-screen bg-[#0d131e] text-zinc-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
+    <div className="h-screen max-h-screen overflow-hidden bg-[#0d131e] text-zinc-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
 
       {/* Top Nav Strip with Increased Typography Size */}
-      <div className="sticky top-0 z-40 w-full bg-[#080e19]/95 border-b border-white/10 px-4 md:px-8 py-3 flex items-center justify-between backdrop-blur-xl shadow-lg">
+      <div className="shrink-0 z-40 w-full bg-[#080e19]/95 border-b border-white/10 px-4 md:px-8 py-2.5 flex items-center justify-between backdrop-blur-xl shadow-lg">
         <div className="flex items-center gap-3.5">
           <Terminal className="w-5 h-5 text-amber-400 shrink-0" />
           <span className="font-mono text-sm md:text-base font-extrabold text-amber-400 tracking-wider uppercase">
             HEADQUATORS
           </span>
-          {/* <span className="hidden sm:flex items-center gap-2 font-mono text-xs md:text-sm text-zinc-400">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-            DEFCON 3 · LIVE METRO TERMINAL
-          </span> */}
         </div>
 
         <div className="flex items-center gap-4">
@@ -70,10 +66,9 @@ export default async function AdminCommandPage() {
       {/* Main Admin Operations Dashboard fed with live real-time DB data */}
       <AdminDashboardClient operatorName={operatorName} />
 
-      {/* Bottom Footer Section with Increased Typography Size */}
-      <footer className="border-t justify-center border-white/10 px-4 md:px-8 py-4 md:py-5 flex flex-col sm:flex-row items-center font-mono text-xs md:text-sm text-zinc-400 gap-3 bg-[#080e19] mt-auto">
-
-        <div className="flex items-center gap-4 flex-wrap text-xs md:text-sm">
+      {/* Compact Bottom Footer Section (Zero Scrollbar) */}
+      <footer className="shrink-0 border-t justify-center border-white/10 px-4 md:px-8 py-2 flex flex-col sm:flex-row items-center font-mono text-xs text-zinc-400 gap-3 bg-[#080e19]">
+        <div className="flex items-center gap-4 flex-wrap text-xs">
           <span>DISPATCH BANDWIDTH: <strong className="text-teal-400 font-bold">98.4%</strong></span>
           <span className="text-zinc-600 hidden sm:inline">•</span>
           <span>ENCRYPTION: <strong className="text-amber-400 font-bold">AES-256 GCM</strong></span>
