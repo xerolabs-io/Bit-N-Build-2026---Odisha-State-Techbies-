@@ -457,6 +457,36 @@ export default function IncidentDetailView({ initialIncident }) {
             </div>
           )}
 
+          {/* Official Emergency Squad Dispatched Banner */}
+          {(String(incident.status || "").toUpperCase().includes("DISPATCH") ||
+            String(incident.status || "").toUpperCase().includes("EN ROUTE") ||
+            String(incident.status || "").toUpperCase().includes("HELP")) && (
+            <div className="bg-emerald-950/70 border-2 border-emerald-500/70 text-emerald-100 p-4 rounded-xl flex items-start sm:items-center justify-between gap-3 shadow-xl shadow-emerald-950/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xl shrink-0 animate-bounce">
+                  🚑
+                </div>
+                <div>
+                  <strong className="text-sm font-bold uppercase tracking-wider text-emerald-300 block font-mono">
+                    HELP DISPATCHED · EMERGENCY SQUAD EN ROUTE
+                  </strong>
+                  <p className="text-xs text-emerald-200 mt-0.5 leading-relaxed font-mono">
+                    Admin Command HQ has dispatched municipal responders:{" "}
+                    <span className="underline font-bold text-white">
+                      {incident.trust_score && !incident.trust_score.includes("COMMUNITY") && !incident.trust_score.includes("CIVIC")
+                        ? incident.trust_score
+                        : "Municipal Emergency Squad"}
+                    </span>
+                    . Stay in a safe position.
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-mono font-black uppercase bg-emerald-500 text-black px-3 py-1.5 rounded-lg shrink-0 shadow-md">
+                ACTIVE DISPATCH
+              </span>
+            </div>
+          )}
+
           {/* Prominent Title */}
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-white font-heading leading-tight">
             {incident.title}

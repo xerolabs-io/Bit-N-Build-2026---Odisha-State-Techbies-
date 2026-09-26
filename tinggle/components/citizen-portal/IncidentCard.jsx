@@ -242,6 +242,16 @@ export default function IncidentCard({ incident, onVote }) {
 
   // Status color styles
   const getStatusBadge = () => {
+    const s = String(incident.status || "").toUpperCase();
+    if (s.includes("DISPATCH") || s.includes("EN ROUTE")) {
+      return "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold animate-pulse";
+    }
+    if (s.includes("RESOLVED") || s.includes("CONTAINED")) {
+      return "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
+    }
+    if (s.includes("FAKE") || s.includes("HOAX") || s.includes("DISINFORMATION") || s.includes("DEBUNKED")) {
+      return "bg-red-500/20 text-red-400 border border-red-500/40 font-bold";
+    }
     switch (incident.statusVariant) {
       case "danger":
         return "bg-red-500/20 text-red-400 border border-red-500/30";
@@ -396,6 +406,26 @@ export default function IncidentCard({ incident, onVote }) {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Help Dispatched Alert for Regular Issues */}
+            {!(incident.id?.startsWith("SOS-") || incident.category === "SOS" || incident.title?.includes("SOS")) &&
+              (String(incident.status || "").toUpperCase().includes("DISPATCH") ||
+                String(incident.status || "").toUpperCase().includes("EN ROUTE") ||
+                String(incident.status || "").toUpperCase().includes("HELP")) && (
+                <div className="mt-2.5 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-between text-xs font-mono text-emerald-300 gap-2 shadow-sm animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <Ambulance className="w-4 h-4 text-emerald-400 animate-bounce shrink-0" />
+                    <span>
+                      🚑 <strong>HELP DISPATCHED · SQUAD EN ROUTE!</strong> Admin Command HQ dispatched municipal assistance.
+                    </span>
+                  </div>
+                  <span className="text-[10px] bg-emerald-500/25 px-2 py-0.5 rounded border border-emerald-500/40 font-bold text-white uppercase shrink-0">
+                    {incident.trustScore && !incident.trustScore.includes("COMMUNITY") && !incident.trustScore.includes("CIVIC")
+                      ? incident.trustScore
+                      : "HELP EN ROUTE"}
+                  </span>
+                </div>
             )}
 
             {/* Community Dispute Warning Strip (visible to all users if disputes exist) */}

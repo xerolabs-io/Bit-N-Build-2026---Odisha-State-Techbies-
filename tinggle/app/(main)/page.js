@@ -362,14 +362,43 @@ export default function CitizenPortalPage() {
     });
 
     prioritized.sort((a, b) => {
-      // 0. Active SOS first
-      // 1. Where user is (GPS)
-      // 2. Watched neighborhoods (from watchlist)
-      // 3. Other regional/latest news
+      // 0. Demote resolved, contained, and fake/hoax reports to least priority
+      const isClosedA = (() => {
+        const s = String(a.status || "").toUpperCase();
+        return (
+          s.includes("RESOLVED") ||
+          s.includes("CONTAINED") ||
+          s.includes("SOLVED") ||
+          s.includes("FAKE") ||
+          s.includes("HOAX") ||
+          s.includes("DISINFORMATION") ||
+          s.includes("DEBUNKED")
+        );
+      })();
+
+      const isClosedB = (() => {
+        const s = String(b.status || "").toUpperCase();
+        return (
+          s.includes("RESOLVED") ||
+          s.includes("CONTAINED") ||
+          s.includes("SOLVED") ||
+          s.includes("FAKE") ||
+          s.includes("HOAX") ||
+          s.includes("DISINFORMATION") ||
+          s.includes("DEBUNKED")
+        );
+      })();
+
+      if (isClosedA !== isClosedB) {
+        return isClosedA ? 1 : -1; // Closed / hoax goes to least priority at bottom
+      }
+
+      // 1. Active SOS first (0), then GPS near (1), then Watchlist (2), then other (3)
       if (a.priority !== b.priority) {
         return a.priority - b.priority;
       }
-      // Within same priority level, latest first
+
+      // 2. Within same group, latest news first
       const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return tB - tA;
