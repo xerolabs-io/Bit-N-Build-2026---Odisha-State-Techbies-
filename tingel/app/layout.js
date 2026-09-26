@@ -3,6 +3,7 @@ import { shadcn } from "@clerk/ui/themes";
 import { Outfit, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
+import UserSync from "@/components/UserSync";
 import { Toaster } from "@/components/ui/toast";
 
 const outfit = Outfit({
@@ -20,16 +21,16 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   title: {
-    default: "WebSense | AI Trust & Verification Layer for Emergency Dispatch",
-    template: "%s | WebSense",
+    default: "Tinggle | AI Trust & Verification Layer for Emergency Dispatch",
+    template: "%s | Tinggle",
   },
   description:
     "AI-powered civic incident reporting pipeline that filters signal from noise, using multimodal AI credibility scoring to dispatch verified high-confidence alerts to emergency services.",
-  applicationName: "WebSense",
+  applicationName: "Tinggle",
   authors: [{ name: "Techbies" }],
   generator: "Next.js",
   keywords: [
-    "WebSense",
+    "Tinggle",
     "incident reporting",
     "emergency dispatch",
     "civic safety",
@@ -51,17 +52,17 @@ export const metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "Tinggel | AI Trust & Verification Layer",
+    title: "Tinggle | AI Trust & Verification Layer",
     description:
       "Filtering rumors from real emergencies. AI-powered multimodal credibility verification for civic incident reporting.",
     url: "/",
-    siteName: "WebSense",
+    siteName: "Tinggle",
     locale: "en_US",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "WebSense | AI Trust & Verification Layer",
+    title: "Tinggle | AI Trust & Verification Layer",
     description:
       "Citizen incident reporting pipeline with multimodal AI credibility verification for emergency dispatch.",
     creator: "@techbies",
@@ -100,6 +101,7 @@ export default function RootLayout({ children }) {
     >
       <body className="min-h-full flex flex-col font-sans antialiased">
         <ClerkProvider appearance={{ theme: shadcn }}>
+          <UserSync />
           <Header />
           <main className="min-h-screen flex-1">{children}</main>
           <Toaster richColors />

@@ -1,17 +1,16 @@
-import { Pool } from "pg"
+import { createClient } from "@supabase/supabase-js";
 
-if (!process.env.DATABASE_URL) {
-    console.error("❌ DATABASE_URL is missing in environment variables.")
+const supabaseUrl =
+  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey =
+  process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error(
+    "❌ Missing SUPABASE_URL or SUPABASE_ANON_KEY in environment variables."
+  );
 }
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    connectionTimeoutMillis: 5000, // Time out connection attempt after 5s if DB is paused/unreachable
-})
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Handle unexpected errors on idle pool clients
-pool.on("error", (err) => {
-    console.error("❌ Unexpected database pool error:", err.message)
-})
-
-export default pool
+export default supabase;
