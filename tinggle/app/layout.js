@@ -23,7 +23,7 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   title: {
-    default: "Tinggle | AI Trust & Verification Layer for Emergency Dispatch",
+    default: "Tinggle | Civic Trust & Verification Layer for Emergency Dispatch",
     template: "%s | Tinggle",
   },
   description:
