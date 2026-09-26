@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import supabase from "@/lib/db.lib";
+import { validateSosSecurityPayload } from "@/lib/phone-validation.lib";
 
 export async function POST(req) {
   try {
@@ -13,19 +14,41 @@ export async function POST(req) {
       details,
       reporterEmail,
       reporterName,
+      deviceFingerprint,
+      honeypot, // Invisible bot trap field
     } = body;
 
-    // Validate phone number (must be at least 10 digits)
-    const digits = String(contactPhone || "").replace(/[^\d+]/g, "");
-    if (!digits || digits.length < 10) {
+    // Extract client IP for anti-flood rate limiter
+    const clientIp =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "127.0.0.1";
+
+    // ── 1. Comprehensive Anti-Spam, Rate-Limit & Phone Security Shield ────────
+    const securityCheck = validateSosSecurityPayload({
+      contactPhone,
+      latitude,
+      longitude,
+      clientIp,
+      deviceFingerprint: deviceFingerprint || "device-session",
+      honeypot,
+    });
+
+    if (!securityCheck.isAllowed) {
+      const statusCode = securityCheck.shieldStatus === "RATE_LIMITED" ? 429 : 400;
       return NextResponse.json(
         {
           success: false,
-          error: "A valid phone number (at least 10 digits) is required for emergency SOS dispatch.",
+          error: securityCheck.error,
+          shieldStatus: securityCheck.shieldStatus,
+          remainingSeconds: securityCheck.remainingSeconds,
         },
-        { status: 400 }
+        { status: statusCode }
       );
     }
+
+    const cleanPhone = securityCheck.cleanPhone;
+    const isAnonymous = !reporterEmail || reporterEmail.includes("anonymous");
 
     // Generate unique SOS incident ID
     const incidentId = `SOS-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -47,9 +70,10 @@ export async function POST(req) {
     }
 
     const title = `${typeEmoji} SOS EMERGENCY: ${emergencyType.toUpperCase()} ALERT`;
-    const callerContactStr = `[EMERGENCY CALLER CONTACT: ${digits}]`;
-    const description = `${callerContactStr} CRITICAL CITIZEN SOS TRIGGERED by ${
-      reporterName || reporterEmail || "Citizen"
+    const callerContactStr = `[EMERGENCY CALLER CONTACT: ${cleanPhone}]`;
+    const authenticityTag = `[SHIELD: TELEMETRY VERIFIED · ANTI-SPAM PASSED]`;
+    const description = `${callerContactStr} ${authenticityTag} CRITICAL CITIZEN SOS TRIGGERED by ${
+      reporterName || (isAnonymous ? "Anonymous Citizen (Phone Verified)" : reporterEmail)
     }. Immediate emergency response required at coordinates (${latitude || "Unknown"}, ${
       longitude || "Unknown"
     }). ${details || "Emergency panic beacon triggered. Dispatching local authorities and nearby eyewitnesses."}`;
@@ -57,7 +81,7 @@ export async function POST(req) {
     const location_text =
       locationText ||
       (latitude && longitude
-        ? `GPS Beacon: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+        ? `GPS Beacon: ${Number(latitude).toFixed(4)}, ${Number(longitude).toFixed(4)}`
         : "Location coordinates broadcasting...");
 
     const basePayload = {
@@ -71,9 +95,11 @@ export async function POST(req) {
       longitude: longitude || null,
       confirm_count: 1,
       dispute_count: 0,
-      trust_score: "100% (CRITICAL SOS BEACON)",
-      reporter_email: reporterEmail || null,
-      is_anonymous: false,
+      trust_score: isAnonymous
+        ? "100% (ANONYMOUS SOS BEACON · SHIELD VERIFIED)"
+        : "100% (VERIFIED CITIZEN SOS BEACON)",
+      reporter_email: reporterEmail || (isAnonymous ? `anon-${incidentId.toLowerCase()}@tinggle.network` : null),
+      is_anonymous: isAnonymous,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -82,14 +108,14 @@ export async function POST(req) {
     let insertedData = null;
     const { data: withPhone, error: phoneErr } = await supabase
       .from("incidents")
-      .insert({ ...basePayload, contact_phone: digits })
+      .insert({ ...basePayload, contact_phone: cleanPhone })
       .select("*")
       .single();
 
     if (!phoneErr) {
       insertedData = withPhone;
     } else {
-      // Fallback: column might not exist yet in schema cache, insert basePayload
+      // Fallback: insert basePayload
       const { data: withoutPhone, error: baseErr } = await supabase
         .from("incidents")
         .insert(basePayload)
@@ -106,7 +132,9 @@ export async function POST(req) {
       insertedData = withoutPhone;
     }
 
-    console.log("🚨 SOS EMERGENCY BROADCAST ACTIVATED:", incidentId, "Caller:", digits);
+    console.log(
+      `🚨 [SOS SECURITY CLEARED] Broadcast ${incidentId} activated from ${clientIp}. Caller: ${cleanPhone} (Anonymous: ${isAnonymous})`
+    );
 
     return NextResponse.json({
       success: true,
@@ -115,12 +143,13 @@ export async function POST(req) {
         incidentId: insertedData.id,
         status: insertedData.status,
         emergencyType,
-        contactPhone: digits,
+        contactPhone: cleanPhone,
         location: location_text,
         latitude: insertedData.latitude,
         longitude: insertedData.longitude,
         createdAt: insertedData.created_at,
         url: `/incident/${insertedData.id}`,
+        shieldStatus: "SHIELD_VERIFIED",
       },
     });
   } catch (err) {

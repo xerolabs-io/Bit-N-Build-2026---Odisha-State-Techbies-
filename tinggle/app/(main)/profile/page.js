@@ -25,8 +25,16 @@ import {
   Flame,
   Zap,
   Phone,
+  KeyRound,
+  Send,
+  Edit2,
+  Check,
+  Smartphone,
+  Shield,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { validatePhoneNumber } from "@/lib/phone-validation.lib";
 
 // ── Category Emoji Map ────────────────────────────────────────────────────────
 const CATEGORY_ICONS = {
@@ -50,12 +58,29 @@ export default function ProfilePage() {
   const [error, setError] = useState(null);
   const [filterTab, setFilterTab] = useState("all"); // "all" | "active" | "resolved" | "flagged"
   const [phone, setPhone] = useState("");
-  const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [phoneSavedMessage, setPhoneSavedMessage] = useState(null);
+  const [otpStep, setOtpStep] = useState("idle"); // "idle" | "otp_sent"
+  const [otpInput, setOtpInput] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState(null);
+  const [demoOtp, setDemoOtp] = useState(null);
+  const [resendTimer, setResendTimer] = useState(0);
 
   const userEmail =
     user?.primaryEmailAddress?.emailAddress ||
     user?.emailAddresses?.[0]?.emailAddress;
+
+  // Countdown timer for OTP resend
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const interval = setInterval(() => {
+      setResendTimer((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendTimer]);
 
   const fetchPhone = useCallback(async () => {
     if (!userEmail) return;
@@ -64,39 +89,87 @@ export default function ProfilePage() {
       const json = await res.json();
       if (json.success && json.phone) {
         setPhone(json.phone);
+        setIsPhoneVerified(Boolean(json.phone_verified));
       }
     } catch (e) {
       console.warn("Failed to fetch phone:", e.message);
     }
   }, [userEmail]);
 
-  const handleSavePhone = async (e) => {
+  // Send OTP
+  const handleSendOtp = async (e) => {
     e?.preventDefault();
-    const cleanDigits = phone.replace(/[^\d+]/g, "");
-    if (!cleanDigits || cleanDigits.length < 10) {
-      alert("Please enter a valid mobile number with at least 10 digits.");
+    setOtpError(null);
+    const validation = validatePhoneNumber(phone);
+    if (!validation.isValid) {
+      setOtpError(validation.error);
       return;
     }
-    setIsSavingPhone(true);
-    setPhoneSavedMessage(null);
+
+    setIsSendingOtp(true);
     try {
-      const res = await fetch("/api/user/phone", {
+      const res = await fetch("/api/user/phone/otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: userEmail, phone: cleanDigits }),
+        body: JSON.stringify({
+          action: "send_otp",
+          email: userEmail,
+          phone: validation.cleanPhone,
+        }),
       });
       const json = await res.json();
       if (json.success) {
         setPhone(json.phone);
-        setPhoneSavedMessage("Emergency phone number verified & saved to your Citizen Profile!");
-        setTimeout(() => setPhoneSavedMessage(null), 4000);
+        setDemoOtp(json.demoCode);
+        setOtpStep("otp_sent");
+        setResendTimer(60);
       } else {
-        alert(json.error || "Failed to save phone number.");
+        setOtpError(json.error || "Failed to send verification code.");
       }
     } catch (err) {
-      alert("Error saving phone: " + err.message);
+      setOtpError(err.message || "Network error sending OTP.");
     } finally {
-      setIsSavingPhone(false);
+      setIsSendingOtp(false);
+    }
+  };
+
+  // Verify OTP
+  const handleVerifyOtp = async (e) => {
+    e?.preventDefault();
+    if (!otpInput || otpInput.trim().length !== 6) {
+      setOtpError("Please enter the 6-digit OTP code.");
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    setOtpError(null);
+    try {
+      const res = await fetch("/api/user/phone/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "verify_otp",
+          email: userEmail,
+          phone,
+          otp: otpInput.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIsPhoneVerified(true);
+        setOtpStep("idle");
+        setIsEditingPhone(false);
+        setOtpInput("");
+        setPhoneSavedMessage("Phone number verified with OTP & permanently locked to your verified Citizen ID!");
+        setTimeout(() => setPhoneSavedMessage(null), 5000);
+        fetchProfile();
+      } else {
+        setOtpError(json.error || "Invalid OTP code. Please try again.");
+      }
+    } catch (err) {
+      setOtpError(err.message || "Failed to verify OTP.");
+    } finally {
+      setIsVerifyingOtp(false);
     }
   };
 
@@ -317,55 +390,201 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* ── Emergency Contact Phone Dispatch Card ────────────────────────── */}
-        <div className="p-5 md:p-6 bg-[#141b2a] border border-white/10 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-lg">
-          <div className="flex items-center gap-4">
-            <div className="w-11 h-11 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
-              <Phone className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm md:text-base font-bold text-white font-heading">
-                  Emergency Contact Phone Number
-                </h3>
-                {phone ? (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                    VERIFIED FOR SOS
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                    REQUIRED FOR SOS
-                  </span>
-                )}
+        {/* ── Emergency Contact Phone Dispatch Card with OTP Verification ──── */}
+        <div className="p-5 md:p-6 bg-[#141b2a] border border-white/10 rounded-2xl flex flex-col gap-4 shadow-lg">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
+                <Phone className="w-5 h-5" />
               </div>
-              <p className="text-xs text-zinc-400 font-mono mt-0.5">
-                Responders & dispatchers call this line immediately when you trigger an emergency SOS beacon.
-              </p>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm md:text-base font-bold text-white font-heading">
+                    Emergency Contact Line
+                  </h3>
+                  {isPhoneVerified ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                      <span>OTP VERIFIED (SOS SECURED)</span>
+                    </span>
+                  ) : phone ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 text-amber-400" />
+                      <span>UNVERIFIED (OTP REQUIRED)</span>
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40">
+                      REQUIRED FOR RESCUE
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-zinc-400 font-mono mt-0.5">
+                  Responders &amp; dispatchers call this line directly upon SOS trigger. Vetted with telecom format check &amp; OTP.
+                </p>
+              </div>
             </div>
+
+            {/* If verified and not editing, show quick badge and Change button */}
+            {isPhoneVerified && !isEditingPhone && (
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-1.5 rounded-xl bg-[#0a0f1d] border border-white/10 font-mono text-sm font-bold text-white flex items-center gap-2">
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{phone}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingPhone(true);
+                    setOtpStep("idle");
+                    setOtpError(null);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center gap-1"
+                >
+                  <Edit2 className="w-3 h-3 text-amber-400" />
+                  <span>Change Number</span>
+                </button>
+              </div>
+            )}
           </div>
 
-          <form onSubmit={handleSavePhone} className="flex items-center gap-2 w-full md:w-auto">
-            <div className="relative flex-1 md:w-56">
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 9876543210"
-                className="w-full bg-[#0a0f1d] border border-white/10 focus:border-red-500/60 rounded-xl px-3.5 py-2 text-xs font-mono text-white placeholder:text-zinc-500 outline-none transition-all"
-              />
+          {/* Phone Form & OTP Flow */}
+          {(!isPhoneVerified || isEditingPhone) && (
+            <div className="pt-2 border-t border-white/5 flex flex-col gap-3">
+              {otpStep === "idle" ? (
+                /* Step 1: Input Phone & Send OTP */
+                <form onSubmit={handleSendOtp} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  <div className="relative flex-1">
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => {
+                        setPhone(e.target.value);
+                        setOtpError(null);
+                      }}
+                      placeholder="Enter 10-digit mobile number (e.g. 9876543210)..."
+                      className="w-full bg-[#0a0f1d] border border-white/10 focus:border-red-500/60 rounded-xl px-3.5 py-2.5 text-xs md:text-sm font-mono text-white placeholder:text-zinc-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="submit"
+                      disabled={isSendingOtp}
+                      className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-mono text-xs font-bold transition-all shadow-md shadow-red-950/40 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0"
+                    >
+                      {isSendingOtp ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>SENDING OTP...</span>
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span>SEND OTP &amp; VERIFY</span>
+                        </>
+                      )}
+                    </button>
+                    {isEditingPhone && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingPhone(false);
+                          setOtpError(null);
+                        }}
+                        className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-zinc-400 hover:text-white transition-all cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </form>
+              ) : (
+                /* Step 2: Enter 6-digit OTP */
+                <form onSubmit={handleVerifyOtp} className="p-4 rounded-xl bg-[#0a0f1d] border border-amber-500/30 flex flex-col gap-3 animate-in fade-in">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2 text-xs font-mono text-zinc-300">
+                      <KeyRound className="w-4 h-4 text-amber-400" />
+                      <span>Enter 6-digit OTP sent to <strong className="text-white">{phone}</strong>:</span>
+                    </div>
+                    {demoOtp && (
+                      <button
+                        type="button"
+                        onClick={() => setOtpInput(demoOtp)}
+                        className="text-[11px] font-mono text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded cursor-pointer"
+                        title="Click to auto-fill simulated OTP"
+                      >
+                        [DEMO SIMULATOR] Auto-fill code: <span className="font-bold underline">{demoOtp}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otpInput}
+                      onChange={(e) => {
+                        setOtpInput(e.target.value.replace(/[^\d]/g, ""));
+                        setOtpError(null);
+                      }}
+                      placeholder="• • • • • •"
+                      className="w-full sm:w-48 bg-[#121929] border border-white/15 focus:border-amber-400 rounded-xl px-4 py-2.5 text-center text-lg font-mono font-bold tracking-widest text-white placeholder:text-zinc-600 outline-none"
+                    />
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="submit"
+                        disabled={isVerifyingOtp || otpInput.length !== 6}
+                        className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      >
+                        {isVerifyingOtp ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>VERIFYING...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>SUBMIT &amp; CONFIRM</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={resendTimer > 0 || isSendingOtp}
+                        onClick={handleSendOtp}
+                        className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-zinc-400 hover:text-white transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                      >
+                        {resendTimer > 0 ? `Resend (${resendTimer}s)` : "Resend OTP"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpStep("idle");
+                          setOtpError(null);
+                        }}
+                        className="px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-mono text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                      >
+                        Back
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {otpError && (
+                <p className="text-xs font-mono text-red-400 flex items-center gap-1.5 animate-in fade-in">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{otpError}</span>
+                </p>
+              )}
             </div>
-            <button
-              type="submit"
-              disabled={isSavingPhone}
-              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-mono text-xs font-bold transition-all shadow-md shadow-red-950/40 cursor-pointer disabled:opacity-50 shrink-0"
-            >
-              {isSavingPhone ? "SAVING..." : "SAVE PHONE"}
-            </button>
-          </form>
+          )}
         </div>
 
         {phoneSavedMessage && (
-          <div className="p-3 bg-emerald-500/15 border border-emerald-500/40 rounded-xl text-xs font-mono text-emerald-300 flex items-center gap-2 -mt-4 animate-in fade-in">
+          <div className="p-3.5 bg-emerald-500/15 border border-emerald-500/40 rounded-xl text-xs font-mono text-emerald-300 flex items-center gap-2 -mt-4 animate-in fade-in shadow-md">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{phoneSavedMessage}</span>
           </div>

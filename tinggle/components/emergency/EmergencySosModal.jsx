@@ -21,7 +21,9 @@ import {
   ShieldCheck,
   Check,
   Edit2,
+  Shield,
 } from "lucide-react";
+import { validatePhoneNumber } from "@/lib/phone-validation.lib";
 
 // Emergency presets
 const EMERGENCY_TYPES = [
@@ -75,9 +77,11 @@ export default function EmergencySosModal() {
   // Phone verification state
   const [savedPhone, setSavedPhone] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [phoneError, setPhoneError] = useState("");
   const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const [honeypot, setHoneypot] = useState("");
   const [helpEnRoute, setHelpEnRoute] = useState(false);
   const [dispatchedUnit, setDispatchedUnit] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -104,6 +108,7 @@ export default function EmergencySosModal() {
         if (json.phone) {
           setSavedPhone(json.phone);
           setPhoneInput(json.phone);
+          setIsPhoneVerified(Boolean(json.phone_verified));
         }
       }
     } catch (e) {
@@ -301,10 +306,14 @@ export default function EmergencySosModal() {
           details: note || undefined,
           reporterEmail: userEmail || "anonymous-sos@tinggle.network",
           reporterName: userName,
+          honeypot: honeypot || undefined,
         }),
       });
 
       const json = await res.json();
+      if (res.status === 429) {
+        throw new Error(json.error || "Anti-spam rate limit reached. Please dial 112 directly if urgent.");
+      }
       if (res.ok && json.success) {
         setActiveSos(json.data);
       } else {
@@ -312,33 +321,35 @@ export default function EmergencySosModal() {
       }
     } catch (err) {
       console.error("SOS broadcast error:", err.message);
-      alert(`SOS Alert encountered an issue: ${err.message}. Please dial 112 immediately!`);
+      alert(`SOS Alert Notice: ${err.message}. Please dial 112 immediately!`);
     } finally {
       setIsBroadcasting(false);
     }
-  }, [selectedType, coords, note, userEmail, userName, phoneInput, savedPhone]);
+  }, [selectedType, coords, note, userEmail, userName, phoneInput, savedPhone, honeypot]);
 
   // Validate phone and initiate SOS trigger
   const handleTriggerSos = async () => {
     setPhoneError("");
-    const cleanDigits = phoneInput.replace(/[^\d+]/g, "");
+    const rawTarget = phoneInput || savedPhone;
+    const phoneCheck = validatePhoneNumber(rawTarget);
 
-    // Must have at least 10 digits
-    if (!cleanDigits || cleanDigits.replace(/[^\d]/g, "").length < 10) {
-      setPhoneError("Please enter a valid 10-digit emergency contact phone number.");
+    if (!phoneCheck.isValid) {
+      setPhoneError(phoneCheck.error || "Invalid emergency contact phone number.");
       return;
     }
 
+    const validatedPhone = phoneCheck.formatted;
+
     // If logged in and phone wasn't saved or changed, save to profile
-    if (user && userEmail && cleanDigits !== savedPhone) {
+    if (user && userEmail && validatedPhone !== savedPhone) {
       setIsSavingPhone(true);
       try {
         await fetch("/api/user/phone", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: userEmail, phone: cleanDigits }),
+          body: JSON.stringify({ email: userEmail, phone: validatedPhone }),
         });
-        setSavedPhone(cleanDigits);
+        setSavedPhone(validatedPhone);
       } catch (err) {
         console.warn("Could not save phone to profile:", err.message);
       } finally {
@@ -346,7 +357,7 @@ export default function EmergencySosModal() {
       }
     }
 
-    startCountdown(cleanDigits);
+    startCountdown(validatedPhone);
   };
 
   // Start 3-second countdown before broadcasting
@@ -715,9 +726,15 @@ export default function EmergencySosModal() {
                           {savedPhone}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded">
-                        VERIFIED PROFILE PHONE
-                      </span>
+                      {isPhoneVerified ? (
+                        <span className="text-[10px] font-mono font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/40 flex items-center gap-1">
+                          <span>✓ OTP VERIFIED</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                          SAVED PHONE
+                        </span>
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col gap-1.5">
@@ -745,7 +762,7 @@ export default function EmergencySosModal() {
                       <p className="text-[10px] font-mono text-zinc-400">
                         {user
                           ? "This phone will be saved to your profile and provided to Admin dispatchers."
-                          : "Required so emergency dispatchers can contact you immediately."}
+                          : "Must be a valid active phone (e.g. 10 digits starting with 6-9)."}
                       </p>
                     </div>
                   )}
@@ -756,6 +773,29 @@ export default function EmergencySosModal() {
                       <span>{phoneError}</span>
                     </p>
                   )}
+
+                  {/* Invisible Honeypot anti-spam bot trap */}
+                  <input
+                    type="text"
+                    name="phone_verification_honeypot"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={honeypot}
+                    onChange={(e) => setHoneypot(e.target.value)}
+                    style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, width: 0, margin: 0, padding: 0 }}
+                    aria-hidden="true"
+                  />
+
+                  {/* Anti-Spam Telemetry Shield Notice */}
+                  <div className="flex items-start gap-2 p-2 rounded-xl bg-sky-950/40 border border-sky-500/20 text-[11px] font-mono text-sky-300">
+                    <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                    <div className="flex flex-col gap-0.5 leading-snug">
+                      <span className="font-bold text-sky-200">Anti-Spam Telemetry Shield Active</span>
+                      <span className="text-zinc-400 text-[10px]">
+                        Zero-delay emergency dispatch. Validates telecom network prefix, GPS coordinates and rate limits to block automated spam without delaying urgent SOS calls.
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Optional Note / Details */}

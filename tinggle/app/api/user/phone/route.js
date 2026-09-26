@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import supabase from "@/lib/db.lib";
-
-// Normalize and validate phone numbers
-function cleanPhoneNumber(phone) {
-  if (!phone) return null;
-  const digits = String(phone).replace(/[^\d+]/g, "");
-  return digits.length >= 10 ? digits : null;
-}
+import { validatePhoneNumber } from "@/lib/phone-validation.lib";
 
 // ── GET /api/user/phone?email=... ─────────────────────────────────────────────
 export async function GET(req) {
@@ -31,23 +25,27 @@ export async function GET(req) {
       .single();
 
     if (error || !user) {
-      return NextResponse.json({ success: true, phone: null });
+      return NextResponse.json({ success: true, phone: null, phone_verified: false });
     }
 
-    // 2. Check native phone column first
-    if (user.phone) {
-      return NextResponse.json({ success: true, phone: user.phone });
-    }
-
-    // 3. Fallback: check metadata in watchlist array
+    // Check metadata in watchlist array first (has verification status)
+    let metaPhone = null;
+    let isVerified = false;
     if (Array.isArray(user.watchlist)) {
       const meta = user.watchlist.find((w) => w?.id === "meta_phone");
       if (meta?.phone) {
-        return NextResponse.json({ success: true, phone: meta.phone });
+        metaPhone = meta.phone;
+        isVerified = Boolean(meta.phone_verified);
       }
     }
 
-    return NextResponse.json({ success: true, phone: null });
+    const resolvedPhone = user.phone || metaPhone || null;
+
+    return NextResponse.json({
+      success: true,
+      phone: resolvedPhone,
+      phone_verified: isVerified,
+    });
   } catch (err) {
     console.error("GET /api/user/phone error:", err.message);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -67,14 +65,15 @@ export async function POST(req) {
       );
     }
 
-    const cleanPhone = cleanPhoneNumber(phone);
-    if (!cleanPhone) {
+    const phoneValidation = validatePhoneNumber(phone);
+    if (!phoneValidation.isValid) {
       return NextResponse.json(
-        { success: false, error: "Please enter a valid phone number with at least 10 digits." },
+        { success: false, error: phoneValidation.error },
         { status: 400 }
       );
     }
 
+    const cleanPhone = phoneValidation.cleanPhone;
     const normalizedEmail = email.toLowerCase().trim();
 
     // 1. Try updating native column 'phone'
@@ -83,40 +82,38 @@ export async function POST(req) {
       .update({ phone: cleanPhone, updated_at: new Date().toISOString() })
       .eq("email", normalizedEmail);
 
-    if (!nativeError) {
-      return NextResponse.json({
-        success: true,
-        message: "Phone number updated successfully.",
+    // 2. Also sync to watchlist metadata
+    try {
+      const { data: user } = await supabase
+        .from("users")
+        .select("watchlist")
+        .eq("email", normalizedEmail)
+        .single();
+
+      let currentWatchlist = Array.isArray(user?.watchlist)
+        ? user.watchlist.filter((item) => item?.id !== "meta_phone")
+        : [];
+
+      currentWatchlist.push({
+        id: "meta_phone",
         phone: cleanPhone,
+        phone_verified: false, // direct save requires OTP verification for verified status
+        updated_at: new Date().toISOString(),
       });
-    }
 
-    // 2. Fallback: update via metadata in 'watchlist' array
-    const { data: user } = await supabase
-      .from("users")
-      .select("watchlist")
-      .eq("email", normalizedEmail)
-      .single();
-
-    const currentWatchlist = Array.isArray(user?.watchlist)
-      ? user.watchlist.filter((w) => w?.id !== "meta_phone")
-      : [];
-
-    currentWatchlist.push({ id: "meta_phone", phone: cleanPhone, updatedAt: new Date().toISOString() });
-
-    const { error: metaError } = await supabase
-      .from("users")
-      .update({ watchlist: currentWatchlist, updated_at: new Date().toISOString() })
-      .eq("email", normalizedEmail);
-
-    if (metaError) {
-      throw new Error(metaError.message);
+      await supabase
+        .from("users")
+        .update({ watchlist: currentWatchlist, updated_at: new Date().toISOString() })
+        .eq("email", normalizedEmail);
+    } catch (metaErr) {
+      console.warn("Watchlist metadata sync notice:", metaErr.message);
     }
 
     return NextResponse.json({
       success: true,
-      message: "Phone number saved to user profile.",
+      message: "Phone number updated successfully.",
       phone: cleanPhone,
+      phone_verified: false,
     });
   } catch (err) {
     console.error("POST /api/user/phone error:", err.message);
