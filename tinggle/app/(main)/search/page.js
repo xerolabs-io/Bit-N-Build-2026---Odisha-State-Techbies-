@@ -259,7 +259,7 @@ function SearchContent() {
         {/* ── Top Breadcrumbs ─────────────────────────────────────────────── */}
         <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
           <Link href="/" className="hover:text-white transition-colors">
-            CIVIC FEED
+            Home
           </Link>
           <span className="text-zinc-600">/</span>
           <span className="text-amber-400 font-bold uppercase tracking-wider">
@@ -277,31 +277,33 @@ function SearchContent() {
           </p>
 
           {/* Search Input Bar */}
-          <form onSubmit={handleSearchSubmit} className="relative w-full max-w-3xl mt-2">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400" />
+          <form onSubmit={handleSearchSubmit} className="relative w-full max-w-3xl mt-2 flex items-center">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400 pointer-events-none" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by keywords, location (e.g. Nayapalli), category, or ID (#INC-12345)..."
-              className="w-full bg-[#141b2a] hover:bg-[#182132] focus:bg-[#161f30] border-2 border-white/10 focus:border-amber-400 rounded-2xl py-3.5 pl-12 pr-28 text-sm md:text-base text-white placeholder:text-zinc-500 outline-none transition-all shadow-xl shadow-black/40 font-mono"
+              className="w-full bg-[#141b2a] hover:bg-[#182132] focus:bg-[#161f30] border-2 border-white/10 focus:border-amber-400 rounded-2xl py-3.5 pl-12 pr-36 text-sm md:text-base text-white placeholder:text-zinc-500 outline-none transition-all shadow-xl shadow-black/40 font-mono"
             />
-            {query && (
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10">
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Clear input"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
               <button
-                type="button"
-                onClick={() => setQuery("")}
-                className="absolute right-20 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white p-1"
-                title="Clear input"
+                type="submit"
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold font-mono text-xs rounded-xl transition-all cursor-pointer shadow-md flex items-center gap-1 shrink-0"
               >
-                <X className="w-4 h-4" />
+                <span>SEARCH</span>
               </button>
-            )}
-            <button
-              type="submit"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold font-mono text-xs rounded-xl transition-all cursor-pointer shadow-md"
-            >
-              SEARCH
-            </button>
+            </div>
           </form>
         </div>
 
