@@ -5,6 +5,7 @@ import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import Header from "@/components/Header";
 import UserSync from "@/components/UserSync";
+import EmergencySosModal from "@/components/emergency/EmergencySosModal";
 import { Toaster } from "@/components/ui/toast";
 
 const outfit = Outfit({
@@ -105,6 +106,7 @@ export default function RootLayout({ children }) {
           <UserSync />
           <Header />
           <main className="min-h-screen flex-1">{children}</main>
+          <EmergencySosModal />
           <Toaster richColors />
           <footer className="px-4 py-8 border-t border-white/10" style={{ background: "linear-gradient(135deg, #000000 0%, #111111 30%, #1a1a1a 60%, #0d131e 100%)" }}>
             <div className="max-w-6xl mx-auto flex justify-center items-center">

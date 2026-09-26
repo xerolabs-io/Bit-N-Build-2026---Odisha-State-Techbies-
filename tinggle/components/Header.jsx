@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { UserButton, SignInButton, Show, useUser } from "@clerk/nextjs";
-import { Bell, Search, ShieldAlert, User } from "lucide-react";
+import { Bell, Search, ShieldAlert, User, AlertOctagon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Header = () => {
@@ -81,8 +81,24 @@ const Header = () => {
                     </div>
                 </div>
 
-                {/* Right Section: Admin Button, Notification Icon & Clerk UserButton */}
+                {/* Right Section: SOS Button, Admin Button, Notification Icon & Clerk UserButton */}
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                    {/* Emergency SOS Button */}
+                    <button
+                        type="button"
+                        id="header-sos-btn"
+                        onClick={() => {
+                            if (typeof window !== "undefined") {
+                                window.dispatchEvent(new CustomEvent("tinggle:open-sos"));
+                            }
+                        }}
+                        className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white font-mono text-xs font-black tracking-wider transition-all shadow-lg shadow-red-950/60 hover:scale-105 active:scale-95 border border-red-400/50 cursor-pointer animate-pulse"
+                        title="Trigger Emergency SOS Panic Alert"
+                    >
+                        <AlertOctagon className="w-3.5 h-3.5 text-white" />
+                        <span>SOS HELP</span>
+                    </button>
+
                     {/* Admin Dashboard Button - visible only to verified Admins */}
                     {isAdmin && (
                         <Link
