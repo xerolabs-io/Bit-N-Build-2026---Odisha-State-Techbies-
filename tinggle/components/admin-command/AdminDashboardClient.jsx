@@ -1172,9 +1172,12 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
       {imageModal && (
         <div
           onClick={() => setImageModal(null)}
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+          className="fixed inset-0 z-[99999] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
         >
-          <div className="relative max-w-3xl max-h-[85vh] w-full h-full flex flex-col items-center justify-center">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-4xl max-h-[85vh] w-full h-full flex flex-col items-center justify-center cursor-default"
+          >
             <Image
               src={imageModal}
               alt="Citizen Evidence"
@@ -1184,7 +1187,7 @@ export default function AdminDashboardClient({ operatorName = "Operator" }) {
             />
             <button
               onClick={() => setImageModal(null)}
-              className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full px-3 py-1 font-mono text-xs cursor-pointer"
+              className="absolute top-4 right-4 z-20 bg-white/20 hover:bg-white/40 text-white rounded-full px-4 py-1.5 font-mono text-xs cursor-pointer shadow-lg backdrop-blur-sm transition-colors border border-white/20"
             >
               ✕ Close Preview
             </button>

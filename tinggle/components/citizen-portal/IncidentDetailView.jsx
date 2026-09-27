@@ -1021,7 +1021,7 @@ export default function IncidentDetailView({ initialIncident }) {
   {modalImage && (
     <div
       onClick={() => setModalImage(null)}
-      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-6 cursor-pointer"
+      className="fixed inset-0 z-[99999] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-6 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
