@@ -27,7 +27,7 @@ export const metadata = {
     template: "%s | Tinggle",
   },
   description:
-    "AI-powered civic incident reporting pipeline that filters signal from noise, using multimodal AI credibility scoring to dispatch verified high-confidence alerts to emergency services.",
+    "Real-time civic intelligence and incident verification platform connecting citizens, eyewitnesses, and municipal emergency dispatchers through verified telemetry and mathematical credibility scoring.",
   applicationName: "Tinggle",
   authors: [{ name: "Techbies" }],
   generator: "Next.js",
@@ -36,12 +36,13 @@ export const metadata = {
     "incident reporting",
     "emergency dispatch",
     "civic safety",
-    "AI trust layer",
-    "multimodal AI",
+    "trust verification layer",
     "signal vs noise",
     "credibility scoring",
+    "eyewitness verification",
+    "telemetry shield",
     "Techbies",
-    "security dispatch",
+    "municipal dispatch",
   ],
   creator: "Techbies",
   publisher: "Techbies",
@@ -54,20 +55,29 @@ export const metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "Tinggle | AI Trust & Verification Layer",
+    title: "Tinggle | Civic Trust & Verification Layer for Emergency Dispatch",
     description:
-      "Filtering rumors from real emergencies. AI-powered multimodal credibility verification for civic incident reporting.",
+      "Filtering rumors from real emergencies. High-confidence civic incident verification and rapid emergency response dispatch.",
     url: "/",
     siteName: "Tinggle",
     locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "/logo.svg",
+        width: 390,
+        height: 117,
+        alt: "Tinggle Logo",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Tinggle | AI Trust & Verification Layer",
+    title: "Tinggle | Civic Trust & Verification Layer for Emergency Dispatch",
     description:
-      "Citizen incident reporting pipeline with multimodal AI credibility verification for emergency dispatch.",
+      "Citizen incident reporting platform with mathematical credibility verification for emergency dispatch.",
     creator: "@techbies",
+    images: ["/logo.svg"],
   },
   robots: {
     index: true,
@@ -81,7 +91,11 @@ export const metadata = {
     },
   },
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
   },
 };
 
